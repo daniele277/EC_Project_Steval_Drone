@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "lsm6dsr.h"
+#include "lps22hh.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -55,10 +56,18 @@ TIM_HandleTypeDef htim9;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
+
 // Variabili globali per salvare le letture dei sensori
 LSM6DSR_AxesRaw_t accel_data;
 LSM6DSR_AxesRaw_t gyro_data;
-uint8_t who_am_i_response = 0;
+float pressure_data;
+uint8_t who_am_i_response_imu = 0;
+uint8_t who_am_i_response_bar = 0;
+
+// Variabili globali per calibrare i sensori
+int32_t gyro_offset_x = 0, gyro_offset_y = 0, gyro_offset_z = 0;
+int32_t acc_offset_x = 0,  acc_offset_y = 0,  acc_offset_z = 0;
+float pressure_zero = 0.0f;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -78,15 +87,15 @@ static void MX_SPI2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-HAL_StatusTypeDef readIMU(uint8_t reg_addr, uint8_t *pData, uint16_t size) {
+HAL_StatusTypeDef readSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_addr,  uint8_t *pData, uint16_t size) {
 
     HAL_StatusTypeDef status;
 
-    // Aggiunge bit di lettura
+    // Aggiunge bit di lettura (MSB a 1)
     uint8_t tx_addr = reg_addr | 0x80;
 
     // Seleziona l'IMU (CS Low)
-    HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(CS_Port, CS_Pin, GPIO_PIN_RESET);
 
     // Invia l'indirizzo del registro da cui voglio leggere
     status = HAL_SPI_Transmit(&hspi1, &tx_addr, 1, SPI_TIMEOUT);
@@ -97,10 +106,92 @@ HAL_StatusTypeDef readIMU(uint8_t reg_addr, uint8_t *pData, uint16_t size) {
     }
 
     // Deseleziona il sensore usando i pin specifici dell'LSM6DSR
-    HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(CS_Port, CS_Pin, GPIO_PIN_SET);
 
     return status;
 }
+
+HAL_StatusTypeDef writeSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_addr, uint8_t value) {
+    HAL_StatusTypeDef status;
+
+    // Aggiunge bit di scrittura (MSB a 0)
+    uint8_t tx_addr = reg_addr & 0x7F;
+
+    // Seleziona l'IMU (CS Low)
+    HAL_GPIO_WritePin(CS_Port, CS_Pin, GPIO_PIN_RESET);
+
+    // Invia l'indirizzo del registro
+    status = HAL_SPI_Transmit(&hspi1, &tx_addr, 1, SPI_TIMEOUT);
+
+    if (status == HAL_OK) {
+        // Invia il valore da scrivere nel registro
+        status = HAL_SPI_Transmit(&hspi1, &value, 1, SPI_TIMEOUT);
+    }
+
+    // Deseleziona il sensore (CS High)
+    HAL_GPIO_WritePin(CS_Port, CS_Pin, GPIO_PIN_SET);
+
+    return status;
+}
+
+void Calibrate_Sensors(void) {
+
+    // Variabili per sommare i campioni
+    int32_t sum_gyro_x = 0, sum_gyro_y = 0, sum_gyro_z = 0;
+    int32_t sum_acc_x = 0,  sum_acc_y = 0,  sum_acc_z = 0;
+    float sum_pressure = 0.0f;
+
+    uint8_t rawIMU[6];
+    uint8_t rawPressure[3];
+    uint16_t num_samples = 500; // 500 campioni a 100Hz => 5 secondi di calibrazione
+
+    // Ciclo di campionamento: acquisisce 500 campioni
+    for (uint16_t i = 0; i < num_samples; i++) {
+        // Lettura Accelerometro
+        if (readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_OUTX_L_A, rawIMU, 6) == HAL_OK) {
+            sum_acc_x += (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
+            sum_acc_y += (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
+            sum_acc_z += (int16_t)((rawIMU[5] << 8) | rawIMU[4]);
+        }
+
+        // Lettura Giroscopio
+        if (readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_OUTX_L_G, rawIMU, 6) == HAL_OK) {
+            sum_gyro_x += (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
+            sum_gyro_y += (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
+            sum_gyro_z += (int16_t)((rawIMU[5] << 8) | rawIMU[4]);
+        }
+
+        // Lettura Barometro
+        if (readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, rawPressure, 3) == HAL_OK) {
+            int32_t press_raw = (int32_t)((rawPressure[2] << 16) | (rawPressure[1] << 8) | rawPressure[0]);
+            // Conversione in hPa
+            sum_pressure += (float)press_raw / 4096.0f;
+        }
+
+        // Pausa di 10ms per sincronizzarsi con il Sampling Rate (104 Hz)
+        HAL_Delay(10);
+    }
+
+    // -- CALCOLO DELLE MEDIE (OFFSET) --
+
+    // Giroscopio
+    gyro_offset_x = sum_gyro_x / num_samples;
+    gyro_offset_y = sum_gyro_y / num_samples;
+    gyro_offset_z = sum_gyro_z / num_samples;
+
+    // Accelerometro X e Y
+    acc_offset_x = sum_acc_x / num_samples;
+    acc_offset_y = sum_acc_y / num_samples;
+
+    // Accelerometro Z
+    // Con full-scale a +-4g, il valore massimo di 32768 (16 bit) corrisponde a 4g. Quindi 1g = ~8192 LSB.
+    int32_t avg_acc_z = sum_acc_z / num_samples;
+    acc_offset_z = avg_acc_z - 8192;
+
+    // Barometro
+    pressure_zero = sum_pressure / num_samples;
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -111,7 +202,9 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  uint8_t rawBuffer[6];
+  uint8_t rawIMU[6];
+  uint8_t rawPressure[3];
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -141,35 +234,75 @@ int main(void)
   MX_SPI1_Init();
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
+
   // Disabilita inizialmente i sensori assicurandoti che i pin CS siano HIGH
   HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, GPIO_PIN_SET);
 
   // Test di comunicazione: Lettura del WHO_AM_I
-  readIMU(LSM6DSR_WHO_AM_I, &who_am_i_response, 1);
+  readSPI(LSM6DSR_WHO_AM_I, &who_am_i_response_imu, 1);
+  readSPI(LPS22HH_WHO_AM_I, &who_am_i_response_bar, 1);
 
-  // Opzionale: Inserisci qui le scritture sui registri CTRL1_XL e CTRL2_G
-  // per attivare l'accelerometro e il giroscopio (es. accenderli a 104Hz).
+  // -- CONFIGURAZIONE ACCELEROMETRO SCRIVENDO IL REGISTRO CTRL1_XL --
+  // Valore 0x48 (0b0100 1000)
+  // 0100 = ODR a 104 Hz (accende automaticamente l'accelerometro)
+  // 10 = Full Scale a +-4g
+  // 00 = Filtri di default
+  writeSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_CTRL1_XL, 0x48);
+
+  // -- CONFIGURAZIONE GIROSCOPIO SCRIVENDO IL REGISTRO CTRL2_G --
+  // Valore 0x4C in binario (0b0100 1100)
+  // 0100 = ODR a 104 Hz (Accende automaticamente il giroscopio)
+  // 11 = Full Scale a 2000 dps
+  // 00 = Default
+  writeSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_CTRL2_G, 0x4C);
+
+  // -- CONFIGURAZIONE BAROMETRO SCRIVENDO IL REGISTRO CTRL_REG1
+  // Valore 0x06 in binario (0b0000 0110)
+  // 0110 = ODR a 100 Hz
+  writeSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_CTRL_REG1, 0x06);
+
+  Calibrate_Sensors();
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  // TBD: La lettura dalla IMU sarà fatta in DMA
   while (1)
   {
 	  // -- LETTURA ACCELEROMETRO --
-	  if(readIMU(LSM6DSR_OUTX_L_A, rawBuffer, 6) == HAL_OK) {
-		  accel_data.x = (int16_t)((rawBuffer[1] << 8) | rawBuffer[0]);
-		  accel_data.y = (int16_t)((rawBuffer[3] << 8) | rawBuffer[2]);
-		  accel_data.z = (int16_t)((rawBuffer[5] << 8) | rawBuffer[4]);
+	  if(readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_OUTX_L_A, rawIMU, 6) == HAL_OK) {
+	      int16_t raw_x = (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
+	      int16_t raw_y = (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
+	      int16_t raw_z = (int16_t)((rawIMU[5] << 8) | rawIMU[4]);
+
+	      // Sottrazione offset
+	      accel_data.x = raw_x - acc_offset_x;
+	      accel_data.y = raw_y - acc_offset_y;
+	      accel_data.z = raw_z - acc_offset_z;
 	  }
 
       // -- LETTURA GIROSCOPIO --
-	  if(readIMU(LSM6DSR_OUTX_L_G, rawBuffer, 6) == HAL_OK) {
-		  gyro_data.x = (int16_t)((rawBuffer[1] << 8) | rawBuffer[0]);
-	      gyro_data.y = (int16_t)((rawBuffer[3] << 8) | rawBuffer[2]);
-	      gyro_data.z = (int16_t)((rawBuffer[5] << 8) | rawBuffer[4]);
+	  if(readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_OUTX_L_G, rawIMU, 6) == HAL_OK) {
+	      int16_t raw_x = (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
+	      int16_t raw_y = (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
+	      int16_t raw_z = (int16_t)((rawIMU[5] << 8) | rawIMU[4]);
+
+	      // Sottrazione offset
+	      gyro_data.x = raw_x - gyro_offset_x;
+	      gyro_data.y = raw_y - gyro_offset_y;
+	      gyro_data.z = raw_z - gyro_offset_z;
 	  }
+
+	  // -- LETTURA BAROMETRO --
+	  if (readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, rawPressure, 3) == HAL_OK) {
+		  int32_t pressure_raw = (float)((rawPressure[2] << 16) | (rawPressure[1] << 8) | rawPressure[0]);
+		  // Conversione in hPa
+		  pressure_data = (float)pressure_raw / 4096.0f;
+		  // Calcolo altitudine
+		  float altitudine = 44330.0f * (1.0f - pow(pressure_data / pressure_zero, 0.190295f));
+	 }
 
 	  HAL_Delay(10);
     /* USER CODE END WHILE */

@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdio.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -48,10 +47,13 @@ I2C_HandleTypeDef hi2c2;
 
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
+DMA_HandleTypeDef hdma_spi2_rx;
+DMA_HandleTypeDef hdma_spi2_tx;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim9;
+TIM_HandleTypeDef htim10;
 
 UART_HandleTypeDef huart1;
 
@@ -63,6 +65,10 @@ LSM6DSR_AxesRaw_t gyro_data;
 float pressure_data;
 uint8_t who_am_i_response_imu = 0;
 uint8_t who_am_i_response_bar = 0;
+uint8_t rawIMU_DMA[6];
+uint8_t rawPressure_DMA[3];
+// Flag dati pront
+volatile uint8_t data_ready = 0;
 
 // Variabili globali per calibrare i sensori
 int32_t gyro_offset_x = 0, gyro_offset_y = 0, gyro_offset_z = 0;
@@ -73,6 +79,7 @@ float pressure_zero = 0.0f;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_TIM2_Init(void);
@@ -81,12 +88,46 @@ static void MX_TIM4_Init(void);
 static void MX_TIM9_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_TIM10_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if(htim->Instance == TIM10) {
+	    HAL_StatusTypeDef status;
+
+	    uint8_t tx_addr = LSM6DSR_OUTX_L_G | 0x80;
+
+	    HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_RESET);
+
+	    status = HAL_SPI_Transmit(&hspi2, &tx_addr, 1, SPI_TIMEOUT);
+
+	    if (status == HAL_OK) {
+	        status = HAL_SPI_Receive_DMA(&hspi2, rawIMU_DMA, 12);
+	    }
+	}
+}
+
+void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
+	if(hspi->Instance == SPI2) {
+		HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_SET);
+
+		gyro_data.x = (int16_t)((rawIMU_DMA[1] << 8) | rawIMU_DMA[0]) - gyro_offset_x;
+		gyro_data.y = (int16_t)((rawIMU_DMA[3] << 8) | rawIMU_DMA[2]) - gyro_offset_y;
+        gyro_data.z = (int16_t)((rawIMU_DMA[5] << 8) | rawIMU_DMA[4]) - gyro_offset_z;
+
+        accel_data.x = (int16_t)((rawIMU_DMA[7] << 8) | rawIMU_DMA[6]) - acc_offset_x;
+        accel_data.y = (int16_t)((rawIMU_DMA[9] << 8) | rawIMU_DMA[8]) - acc_offset_y;
+        accel_data.z = (int16_t)((rawIMU_DMA[11] << 8)| rawIMU_DMA[10])- acc_offset_z;
+
+        data_ready = 1;
+	}
+}
+
 HAL_StatusTypeDef readSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_addr,  uint8_t *pData, uint16_t size) {
 
     HAL_StatusTypeDef status;
@@ -98,11 +139,11 @@ HAL_StatusTypeDef readSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_ad
     HAL_GPIO_WritePin(CS_Port, CS_Pin, GPIO_PIN_RESET);
 
     // Invia l'indirizzo del registro da cui voglio leggere
-    status = HAL_SPI_Transmit(&hspi1, &tx_addr, 1, SPI_TIMEOUT);
+    status = HAL_SPI_Transmit(&hspi2, &tx_addr, 1, SPI_TIMEOUT);
 
     if (status == HAL_OK) {
         // Riceve i dati dal sensore
-        status = HAL_SPI_Receive(&hspi1, pData, size, SPI_TIMEOUT);
+        status = HAL_SPI_Receive(&hspi2, pData, size, SPI_TIMEOUT);
     }
 
     // Deseleziona il sensore usando i pin specifici dell'LSM6DSR
@@ -121,11 +162,11 @@ HAL_StatusTypeDef writeSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_a
     HAL_GPIO_WritePin(CS_Port, CS_Pin, GPIO_PIN_RESET);
 
     // Invia l'indirizzo del registro
-    status = HAL_SPI_Transmit(&hspi1, &tx_addr, 1, SPI_TIMEOUT);
+    status = HAL_SPI_Transmit(&hspi2, &tx_addr, 1, SPI_TIMEOUT);
 
     if (status == HAL_OK) {
         // Invia il valore da scrivere nel registro
-        status = HAL_SPI_Transmit(&hspi1, &value, 1, SPI_TIMEOUT);
+        status = HAL_SPI_Transmit(&hspi2, &value, 1, SPI_TIMEOUT);
     }
 
     // Deseleziona il sensore (CS High)
@@ -202,9 +243,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  uint8_t rawIMU[6];
-  uint8_t rawPressure[3];
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -225,6 +263,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_ADC1_Init();
   MX_I2C2_Init();
   MX_TIM2_Init();
@@ -233,6 +272,7 @@ int main(void)
   MX_TIM9_Init();
   MX_SPI1_Init();
   MX_SPI2_Init();
+  MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
 
   // Disabilita inizialmente i sensori assicurandoti che i pin CS siano HIGH
@@ -264,6 +304,9 @@ int main(void)
 
   Calibrate_Sensors();
 
+  // Avvio timer in modalità interrupt
+  HAL_TIM_Base_Start_IT(&htim10);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -271,40 +314,9 @@ int main(void)
   // TBD: La lettura dalla IMU sarà fatta in DMA
   while (1)
   {
-	  // -- LETTURA ACCELEROMETRO --
-	  if(readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_OUTX_L_A, rawIMU, 6) == HAL_OK) {
-	      int16_t raw_x = (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
-	      int16_t raw_y = (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
-	      int16_t raw_z = (int16_t)((rawIMU[5] << 8) | rawIMU[4]);
-
-	      // Sottrazione offset
-	      accel_data.x = raw_x - acc_offset_x;
-	      accel_data.y = raw_y - acc_offset_y;
-	      accel_data.z = raw_z - acc_offset_z;
+	  if(data_ready == 1) {
+		  data_ready = 0;
 	  }
-
-      // -- LETTURA GIROSCOPIO --
-	  if(readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_OUTX_L_G, rawIMU, 6) == HAL_OK) {
-	      int16_t raw_x = (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
-	      int16_t raw_y = (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
-	      int16_t raw_z = (int16_t)((rawIMU[5] << 8) | rawIMU[4]);
-
-	      // Sottrazione offset
-	      gyro_data.x = raw_x - gyro_offset_x;
-	      gyro_data.y = raw_y - gyro_offset_y;
-	      gyro_data.z = raw_z - gyro_offset_z;
-	  }
-
-	  // -- LETTURA BAROMETRO --
-	  if (readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, rawPressure, 3) == HAL_OK) {
-		  int32_t pressure_raw = (float)((rawPressure[2] << 16) | (rawPressure[1] << 8) | rawPressure[0]);
-		  // Conversione in hPa
-		  pressure_data = (float)pressure_raw / 4096.0f;
-		  // Calcolo altitudine
-		  float altitudine = 44330.0f * (1.0f - pow(pressure_data / pressure_zero, 0.190295f));
-	 }
-
-	  HAL_Delay(10);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -700,6 +712,37 @@ static void MX_TIM9_Init(void)
 }
 
 /**
+  * @brief TIM10 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM10_Init(void)
+{
+
+  /* USER CODE BEGIN TIM10_Init 0 */
+
+  /* USER CODE END TIM10_Init 0 */
+
+  /* USER CODE BEGIN TIM10_Init 1 */
+
+  /* USER CODE END TIM10_Init 1 */
+  htim10.Instance = TIM10;
+  htim10.Init.Prescaler = 8076;
+  htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim10.Init.Period = 99;
+  htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM10_Init 2 */
+
+  /* USER CODE END TIM10_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -729,6 +772,25 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream3_IRQn);
+  /* DMA1_Stream4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
 
 }
 

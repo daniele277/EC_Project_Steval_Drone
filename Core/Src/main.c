@@ -24,6 +24,7 @@
 #include "lsm6dsr.h"
 #include "lps22hh.h"
 #include <math.h>
+#include "sensor_fusion.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,6 +67,7 @@ LSM6DSR_AxesRaw_t gyro_data;
 float pressure_data;
 uint8_t who_am_i_response_imu = 0;
 uint8_t who_am_i_response_bar = 0;
+uint8_t status_reg;
 uint8_t tx_buffer_dma[13];
 uint8_t rx_buffer_dma[13];
 uint8_t rawPressure_DMA[3];
@@ -76,6 +78,7 @@ volatile uint8_t data_ready = 0;
 int32_t gyro_offset_x = 0, gyro_offset_y = 0, gyro_offset_z = 0;
 int32_t acc_offset_x = 0,  acc_offset_y = 0,  acc_offset_z = 0;
 float pressure_zero = 0.0f;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -290,8 +293,8 @@ int main(void)
   HAL_GPIO_WritePin(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, GPIO_PIN_SET);
 
   // Test di comunicazione: Lettura del WHO_AM_I
-  readSPI(LSM6DSR_WHO_AM_I, &who_am_i_response_imu, 1);
-  readSPI(LPS22HH_WHO_AM_I, &who_am_i_response_bar, 1);
+  readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_WHO_AM_I, &who_am_i_response_imu, 1);
+  readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_WHO_AM_I, &who_am_i_response_bar, 1);
 
   // -- CONFIGURAZIONE ACCELEROMETRO SCRIVENDO IL REGISTRO CTRL1_XL --
   // Valore 0x48 (0b0100 1000)
@@ -325,6 +328,7 @@ int main(void)
   while (1)
   {
 	  if(data_ready == 1) {
+		  Sensor_Fusion_Update(&accel_data, &gyro_data);
 		  data_ready = 0;
 	  }
     /* USER CODE END WHILE */

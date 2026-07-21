@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "lsm6dsr.h"
 #include "lps22hh.h"
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -65,7 +66,8 @@ LSM6DSR_AxesRaw_t gyro_data;
 float pressure_data;
 uint8_t who_am_i_response_imu = 0;
 uint8_t who_am_i_response_bar = 0;
-uint8_t rawIMU_DMA[6];
+uint8_t tx_buffer_dma[13];
+uint8_t rx_buffer_dma[13];
 uint8_t rawPressure_DMA[3];
 // Flag dati pront
 volatile uint8_t data_ready = 0;
@@ -98,31 +100,31 @@ static void MX_TIM10_Init(void);
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if(htim->Instance == TIM10) {
-	    HAL_StatusTypeDef status;
-
-	    uint8_t tx_addr = LSM6DSR_OUTX_L_G | 0x80;
-
+		// Il primo byte da trasmettere è l'indirizzo del registro di partenza
+		// I restanti 12 sono byte dummy inviati dal master per generare il segnale di clock
+		// Ricordiamo infatti che SPI è un protocollo full-duplex!
+	    tx_buffer_dma[0] = LSM6DSR_OUTX_L_G | 0x80;
 	    HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_RESET);
-
-	    status = HAL_SPI_Transmit(&hspi2, &tx_addr, 1, SPI_TIMEOUT);
-
-	    if (status == HAL_OK) {
-	        status = HAL_SPI_Receive_DMA(&hspi2, rawIMU_DMA, 12);
-	    }
+	    // Il DMA gestisce l'intera comunicazione master-slave in modo asincrono rispeto al processore
+	    HAL_SPI_TransmitReceive_DMA(&hspi2, tx_buffer_dma, rx_buffer_dma, 13);
 	}
 }
 
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
 	if(hspi->Instance == SPI2) {
 		HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_SET);
 
-		gyro_data.x = (int16_t)((rawIMU_DMA[1] << 8) | rawIMU_DMA[0]) - gyro_offset_x;
-		gyro_data.y = (int16_t)((rawIMU_DMA[3] << 8) | rawIMU_DMA[2]) - gyro_offset_y;
-        gyro_data.z = (int16_t)((rawIMU_DMA[5] << 8) | rawIMU_DMA[4]) - gyro_offset_z;
+		// Scartiamo il primo byte perché si riferisce all'invio dell'indirizzo
 
-        accel_data.x = (int16_t)((rawIMU_DMA[7] << 8) | rawIMU_DMA[6]) - acc_offset_x;
-        accel_data.y = (int16_t)((rawIMU_DMA[9] << 8) | rawIMU_DMA[8]) - acc_offset_y;
-        accel_data.z = (int16_t)((rawIMU_DMA[11] << 8)| rawIMU_DMA[10])- acc_offset_z;
+		// Giroscopio
+		gyro_data.x = (int16_t)((rx_buffer_dma[2] << 8) | rx_buffer_dma[1]) - gyro_offset_x;
+        gyro_data.y = (int16_t)((rx_buffer_dma[4] << 8) | rx_buffer_dma[3]) - gyro_offset_y;
+        gyro_data.z = (int16_t)((rx_buffer_dma[6] << 8) | rx_buffer_dma[5]) - gyro_offset_z;
+
+        // Accelerometro
+        accel_data.x = (int16_t)((rx_buffer_dma[8] << 8) | rx_buffer_dma[7]) - acc_offset_x;
+        accel_data.y = (int16_t)((rx_buffer_dma[10] << 8) | rx_buffer_dma[9]) - acc_offset_y;
+        accel_data.z = (int16_t)((rx_buffer_dma[12] << 8)| rx_buffer_dma[11]) - acc_offset_z;
 
         data_ready = 1;
 	}
@@ -188,6 +190,13 @@ void Calibrate_Sensors(void) {
 
     // Ciclo di campionamento: acquisisce 500 campioni
     for (uint16_t i = 0; i < num_samples; i++) {
+
+    	// Polling bloccante sullo STATUS_REG (indirizzo 0x1E) dell'IMU LSM6DSR
+    	// Attende che sia l'accelerometro (XLDA, bit 0) che il giroscopio (GDA, bit 1) abbiano nuovi dati
+        do {
+        	readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_STATUS_REG, &status_reg, 1);
+        } while ((status_reg & 0x03) != 0x03);
+
         // Lettura Accelerometro
         if (readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_OUTX_L_A, rawIMU, 6) == HAL_OK) {
             sum_acc_x += (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
@@ -203,14 +212,13 @@ void Calibrate_Sensors(void) {
         }
 
         // Lettura Barometro
+        // N.B: LPS22HH è impostato a 100 Hz, un polling specifico sul suo STATUS_REG sarebbe ottimale,
+        // ma essendo la frequenza quasi coincidente all'IMU, la lettura consecutiva è accettabile in questa fase.
         if (readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, rawPressure, 3) == HAL_OK) {
             int32_t press_raw = (int32_t)((rawPressure[2] << 16) | (rawPressure[1] << 8) | rawPressure[0]);
             // Conversione in hPa
             sum_pressure += (float)press_raw / 4096.0f;
         }
-
-        // Pausa di 10ms per sincronizzarsi con il Sampling Rate (104 Hz)
-        HAL_Delay(10);
     }
 
     // -- CALCOLO DELLE MEDIE (OFFSET) --
@@ -225,13 +233,15 @@ void Calibrate_Sensors(void) {
     acc_offset_y = sum_acc_y / num_samples;
 
     // Accelerometro Z
-    // Con full-scale a +-4g, il valore massimo di 32768 (16 bit) corrisponde a 4g. Quindi 1g = ~8192 LSB.
+    // Sensibilità nominale per FS +/-4g = 0.122 mg/LSB. 1 g = 1000 / 0.122 = 8196.7 LSB
     int32_t avg_acc_z = sum_acc_z / num_samples;
-    acc_offset_z = avg_acc_z - 8192;
+    acc_offset_z = avg_acc_z - 8197;
 
     // Barometro
     pressure_zero = sum_pressure / num_samples;
 }
+
+
 
 /* USER CODE END 0 */
 

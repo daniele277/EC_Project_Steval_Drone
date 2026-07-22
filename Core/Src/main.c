@@ -244,6 +244,45 @@ void Calibrate_Sensors(void) {
     pressure_zero = sum_pressure / num_samples;
 }
 
+void Test_Motors(void)
+{
+    // Parametri operativi in termini di valori di registro CCR
+    const uint32_t PWM_OFF = 0;       // Duty Cycle 0%
+    const uint32_t PWM_TEST = 500;    // Duty Cycle 25% (500/(1+1999)) per limitare la coppia a vuoto
+    const uint32_t TIME_TEST_MS = 1000; // Durata dell'azionamento (1 secondo)
+    const uint32_t TIME_PAUSE_MS = 500; // Pausa tra i motori
+
+    // Avvio della generazione del PWM sui 4 canali del Timer 4
+    HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_4);
+
+    // Condizione di sicurezza iniziale: tutti i duty cycle a 0%
+    // La macro __HAL_TIM_SET_COMPARE modifica il valore del CCR a runtime
+    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, PWM_OFF);
+    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, PWM_OFF);
+    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, PWM_OFF);
+    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_4, PWM_OFF);
+    // Si forza l'aggiornamento del duty cycle senza aspettare il reset successivo del timer
+    htim4.Instance->EGR = TIM_EGR_UG;
+
+    // Canali del timer
+    uint32_t tim_channels[4] = {TIM_CHANNEL_1, TIM_CHANNEL_2, TIM_CHANNEL_3, TIM_CHANNEL_4};
+
+    // Attivazione sequenziale
+    for(uint8_t i = 0; i < 4; i++) {
+        // Applica tensione al motore i-esimo
+        __HAL_TIM_SET_COMPARE(&htim4, tim_channels[i], PWM_TEST);
+        htim4.Instance->EGR = TIM_EGR_UG;
+        HAL_Delay(TIME_TEST_MS);
+        // Disabilita tensione
+        __HAL_TIM_SET_COMPARE(&htim4, tim_channels[i], PWM_OFF);
+        htim4.Instance->EGR = TIM_EGR_UG;
+        HAL_Delay(TIME_PAUSE_MS);
+    }
+}
+
 
 
 /* USER CODE END 0 */
@@ -316,6 +355,8 @@ int main(void)
   writeSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_CTRL_REG1, 0x06);
 
   Calibrate_Sensors();
+
+  Test_Motors();
 
   // Avvio timer in modalità interrupt
   HAL_TIM_Base_Start_IT(&htim10);

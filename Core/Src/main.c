@@ -283,6 +283,38 @@ void Test_Motors(void)
     }
 }
 
+void Motor_Mixer(float throttle, float pid_pitch, float pid_roll, float pid_yaw) {
+    // Matrice di motor mixing
+    float m1 = throttle - pid_pitch - pid_roll + pid_yaw;
+    float m2 = throttle + pid_pitch - pid_roll - pid_yaw;
+    float m3 = throttle + pid_pitch + pid_roll + pid_yaw;
+    float m4 = throttle - pid_pitch + pid_roll - pid_yaw;
+
+    // Definizione dei limiti PWM
+    // Questo è da vedere, perché dipende dall'ARR
+    float pwm_min = 50.0f;  // Minimo per evitare lo spegnimento in volo
+    float pwm_max = 1000.0f;
+
+    // Sicurezza: motori spenti se il gas è a zero
+    if (throttle < 10.0f) {
+        m1 = 0; m2 = 0; m3 = 0; m4 = 0;
+    } else {
+        // aturazione sicura dei valori
+        if (m1 > pwm_max) m1 = pwm_max; else if (m1 < pwm_min) m1 = pwm_min;
+        if (m2 > pwm_max) m2 = pwm_max; else if (m2 < pwm_min) m2 = pwm_min;
+        if (m3 > pwm_max) m3 = pwm_max; else if (m3 < pwm_min) m3 = pwm_min;
+        if (m4 > pwm_max) m4 = pwm_max; else if (m4 < pwm_min) m4 = pwm_min;
+    }
+
+    // Scrittura nei registri del timer
+    // Il timer dovrebbe essere TIM4
+    // Da vedere se si può utilizzare la macro __HAL_TIM_SET_COMPARE
+    TIM4->CCR1 = (uint32_t)m1;
+    TIM4->CCR2 = (uint32_t)m2;
+    TIM4->CCR3 = (uint32_t)m3;
+    TIM4->CCR4 = (uint32_t)m4;
+}
+
 
 
 /* USER CODE END 0 */

@@ -20,6 +20,10 @@ void PID_Init(PID *pid, float kp, float ki, float kd, float out_max, float out_m
 	pid->int_min = -pid->int_max;
 }
 
+void PID_Reset(PID *pid) {
+	pid->integral = 0.0f;
+}
+
 float PID_Compute(PID *pid, float setpoint, float measured, float dt) {
 	float error;
 	float p_out, i_out, d_out, tot;

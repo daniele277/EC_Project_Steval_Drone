@@ -8,8 +8,8 @@
 #define M_PI 3.14159265358979323846f
 #endif
 
-// Periodo di campionamento (1 / 104 Hz)
-#define DT 0.009615f
+// Periodo di campionamento (1 / 416 Hz)
+#define DT 0.0024f
 
 // Sensibilità giroscopio per FS di +/- 2000 dps (0.07 dps/LSB)
 #define GYRO_SENSITIVITY 0.070f

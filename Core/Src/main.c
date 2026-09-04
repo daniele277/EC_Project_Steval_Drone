@@ -25,6 +25,7 @@
 #include "lps22hh.h"
 #include <math.h>
 #include "sensor_fusion.h"
+#include "pid.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -71,6 +72,10 @@ uint8_t status_reg;
 uint8_t tx_buffer_dma[13];
 uint8_t rx_buffer_dma[13];
 uint8_t rawPressure_DMA[3];
+float target_pitch = 0.0f;
+float target_roll = 0.0f;
+float target_yaw = 0.0f;
+float throttle = 0.0f;
 // Flag dati pront
 volatile uint8_t data_ready = 0;
 
@@ -189,7 +194,7 @@ void Calibrate_Sensors(void) {
 
     uint8_t rawIMU[6];
     uint8_t rawPressure[3];
-    uint16_t num_samples = 500; // 500 campioni a 100Hz => 5 secondi di calibrazione
+    uint16_t num_samples = 500;
 
     // Ciclo di campionamento: acquisisce 500 campioni
     for (uint16_t i = 0; i < num_samples; i++) {
@@ -292,27 +297,25 @@ void Motor_Mixer(float throttle, float pid_pitch, float pid_roll, float pid_yaw)
 
     // Definizione dei limiti PWM
     // Questo è da vedere, perché dipende dall'ARR
-    float pwm_min = 50.0f;  // Minimo per evitare lo spegnimento in volo
-    float pwm_max = 1000.0f;
+    float pwm_min = 2800.0f;  // Minimo per evitare lo spegnimento in volo (5% del valore massimo)
+    float pwm_max = 5599.0f;  // Duty cycle massimo al 100%
 
     // Sicurezza: motori spenti se il gas è a zero
     if (throttle < 10.0f) {
         m1 = 0; m2 = 0; m3 = 0; m4 = 0;
     } else {
-        // aturazione sicura dei valori
+        // Saturazione sicura dei valori
         if (m1 > pwm_max) m1 = pwm_max; else if (m1 < pwm_min) m1 = pwm_min;
         if (m2 > pwm_max) m2 = pwm_max; else if (m2 < pwm_min) m2 = pwm_min;
         if (m3 > pwm_max) m3 = pwm_max; else if (m3 < pwm_min) m3 = pwm_min;
         if (m4 > pwm_max) m4 = pwm_max; else if (m4 < pwm_min) m4 = pwm_min;
     }
 
-    // Scrittura nei registri del timer
-    // Il timer dovrebbe essere TIM4
-    // Da vedere se si può utilizzare la macro __HAL_TIM_SET_COMPARE
-    TIM4->CCR1 = (uint32_t)m1;
-    TIM4->CCR2 = (uint32_t)m2;
-    TIM4->CCR3 = (uint32_t)m3;
-    TIM4->CCR4 = (uint32_t)m4;
+    // Scrittura nei registri del timer utilizzando la macro HAL
+    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, (uint32_t)m1);
+    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, (uint32_t)m2);
+    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, (uint32_t)m3);
+    __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_4, (uint32_t)m4);
 }
 
 
@@ -368,18 +371,18 @@ int main(void)
   readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_WHO_AM_I, &who_am_i_response_bar, 1);
 
   // -- CONFIGURAZIONE ACCELEROMETRO SCRIVENDO IL REGISTRO CTRL1_XL --
-  // Valore 0x48 (0b0100 1000)
-  // 0100 = ODR a 104 Hz (accende automaticamente l'accelerometro)
+  // Valore 0x68 (0b0110 1000)
+  // 0110 = ODR a 416 Hz
   // 10 = Full Scale a +-4g
   // 00 = Filtri di default
-  writeSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_CTRL1_XL, 0x48);
+  writeSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_CTRL1_XL, 0x68);
 
   // -- CONFIGURAZIONE GIROSCOPIO SCRIVENDO IL REGISTRO CTRL2_G --
-  // Valore 0x4C in binario (0b0100 1100)
-  // 0100 = ODR a 104 Hz (Accende automaticamente il giroscopio)
+  // Valore 0x6C in binario (0b0110 1100)
+  // 0110 = ODR a 416 Hz
   // 11 = Full Scale a 2000 dps
   // 00 = Default
-  writeSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_CTRL2_G, 0x4C);
+  writeSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_CTRL2_G, 0x6C);
 
   // -- CONFIGURAZIONE BAROMETRO SCRIVENDO IL REGISTRO CTRL_REG1
   // Valore 0x06 in binario (0b0000 0110)
@@ -393,6 +396,12 @@ int main(void)
   // Avvio timer in modalità interrupt
   HAL_TIM_Base_Start_IT(&htim10);
 
+  // Inizializzazione dei PID
+  PID pid_pitch, pid_roll, pid_yaw;
+  PID_Init(&pid_pitch, 100.0f, 10.0f, 0.0f, 400.0f, -400.0f);
+  PID_Init(&pid_roll,  100.0f, 10.0f, 0.0f, 400.0f, -400.0f);
+  PID_Init(&pid_yaw,   150.0f, 0.0f,  0.0f, 400.0f, -400.0f);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -401,7 +410,24 @@ int main(void)
   while (1)
   {
 	  if(data_ready == 1) {
+		  // Stima degli angoli
 		  Sensor_Fusion_Update(&accel_data, &gyro_data);
+
+		  // Calcolo azione di controllo
+		  float out_pitch = PID_Compute(&pid_pitch, target_pitch, pitch_est, DT);
+		  float out_roll  = PID_Compute(&pid_roll, target_roll, roll_est, DT);
+          float out_yaw   = PID_Compute(&pid_yaw, target_yaw, yaw_est, DT);
+
+          // Resetta la somma integrale dei PID quando il drone è fermo
+          if(throttle < 10) {
+        	  PID_Reset(&pid_pitch);
+        	  PID_Reset(&pid_roll);
+        	  PID_Reset(&pid_yaw);
+          }
+
+          // Motor mixer
+          Motor_Mixer(throttle, out_pitch, out_roll, out_yaw);
+
 		  data_ready = 0;
 	  }
     /* USER CODE END WHILE */
@@ -709,9 +735,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 84;
+  htim4.Init.Prescaler = 2;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 1999;
+  htim4.Init.Period = 5599;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -816,7 +842,7 @@ static void MX_TIM10_Init(void)
   htim10.Instance = TIM10;
   htim10.Init.Prescaler = 8076;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 99;
+  htim10.Init.Period = 24;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim10) != HAL_OK)

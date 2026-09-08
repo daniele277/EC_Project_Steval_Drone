@@ -290,15 +290,15 @@ void Test_Motors(void)
 
 void Motor_Mixer(float throttle, float pid_pitch, float pid_roll, float pid_yaw) {
     // Matrice di motor mixing
-    float m1 = throttle - pid_pitch - pid_roll + pid_yaw;
-    float m2 = throttle + pid_pitch - pid_roll - pid_yaw;
-    float m3 = throttle + pid_pitch + pid_roll + pid_yaw;
-    float m4 = throttle - pid_pitch + pid_roll - pid_yaw;
+    float m1 = throttle + pid_pitch - pid_roll + pid_yaw; // posteriore dx
+    float m2 = throttle - pid_pitch - pid_roll - pid_yaw; // anteriore dx
+    float m3 = throttle - pid_pitch + pid_roll + pid_yaw; // anteriore sx
+    float m4 = throttle + pid_pitch + pid_roll - pid_yaw; // posteriore sx
 
     // Definizione dei limiti PWM
     // Questo è da vedere, perché dipende dall'ARR
     float pwm_min = 2800.0f;  // Minimo per evitare lo spegnimento in volo (5% del valore massimo)
-    float pwm_max = 5599.0f;  // Duty cycle massimo al 100%
+    float pwm_max = 55999.0f;  // Duty cycle massimo al 100%
 
     // Sicurezza: motori spenti se il gas è a zero
     if (throttle < 10.0f) {

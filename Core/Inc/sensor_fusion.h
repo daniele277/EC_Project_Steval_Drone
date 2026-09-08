@@ -20,6 +20,7 @@
 // Esportazione delle variabili globali in modo che siano visibili anche nel main
 extern volatile float roll_est;
 extern volatile float pitch_est;
+extern volatile float yaw_est;
 
 void Sensor_Fusion_Update(LSM6DSR_AxesRaw_t *accel_data, LSM6DSR_AxesRaw_t *gyro_data);
 

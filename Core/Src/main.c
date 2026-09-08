@@ -76,6 +76,12 @@ float target_pitch = 0.0f;
 float target_roll = 0.0f;
 float target_yaw = 0.0f;
 float throttle = 0.0f;
+
+float m1 = 0.0f;
+float m2 = 0.0f;
+float m3 = 0.0f;
+float m4 = 0.0f;
+
 // Flag dati pront
 volatile uint8_t data_ready = 0;
 
@@ -124,15 +130,15 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
 
 		// Scartiamo il primo byte perché si riferisce all'invio dell'indirizzo
 
-		// Giroscopio
-		gyro_data.x = (int16_t)((rx_buffer_dma[2] << 8) | rx_buffer_dma[1]) - gyro_offset_x;
-        gyro_data.y = (int16_t)((rx_buffer_dma[4] << 8) | rx_buffer_dma[3]) - gyro_offset_y;
-        gyro_data.z = (int16_t)((rx_buffer_dma[6] << 8) | rx_buffer_dma[5]) - gyro_offset_z;
+		// Giroscopio: Scambio X con Y
+		gyro_data.x = (int16_t)((rx_buffer_dma[4] << 8) | rx_buffer_dma[3]) - gyro_offset_x;
+		gyro_data.y = (int16_t)((rx_buffer_dma[2] << 8) | rx_buffer_dma[1]) - gyro_offset_y;
+		gyro_data.z = (int16_t)((rx_buffer_dma[6] << 8) | rx_buffer_dma[5]) - gyro_offset_z;
 
-        // Accelerometro
-        accel_data.x = (int16_t)((rx_buffer_dma[8] << 8) | rx_buffer_dma[7]) - acc_offset_x;
-        accel_data.y = (int16_t)((rx_buffer_dma[10] << 8) | rx_buffer_dma[9]) - acc_offset_y;
-        accel_data.z = (int16_t)((rx_buffer_dma[12] << 8)| rx_buffer_dma[11]) - acc_offset_z;
+		// Accelerometro: Scambio X con Y
+		accel_data.x = (int16_t)((rx_buffer_dma[10] << 8) | rx_buffer_dma[9]) - acc_offset_x;
+		accel_data.y = (int16_t)((rx_buffer_dma[8] << 8) | rx_buffer_dma[7]) - acc_offset_y;
+		accel_data.z = (int16_t)((rx_buffer_dma[12] << 8)| rx_buffer_dma[11]) - acc_offset_z;
 
         data_ready = 1;
 	}
@@ -207,15 +213,15 @@ void Calibrate_Sensors(void) {
 
         // Lettura Accelerometro
         if (readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_OUTX_L_A, rawIMU, 6) == HAL_OK) {
-            sum_acc_x += (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
-            sum_acc_y += (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
+            sum_acc_x += (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
+            sum_acc_y += (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
             sum_acc_z += (int16_t)((rawIMU[5] << 8) | rawIMU[4]);
         }
 
         // Lettura Giroscopio
         if (readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_OUTX_L_G, rawIMU, 6) == HAL_OK) {
-            sum_gyro_x += (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
-            sum_gyro_y += (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
+            sum_gyro_x += (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
+            sum_gyro_y += (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
             sum_gyro_z += (int16_t)((rawIMU[5] << 8) | rawIMU[4]);
         }
 
@@ -290,10 +296,10 @@ void Test_Motors(void)
 
 void Motor_Mixer(float throttle, float pid_pitch, float pid_roll, float pid_yaw) {
     // Matrice di motor mixing
-    float m1 = throttle + pid_pitch - pid_roll + pid_yaw; // posteriore dx
-    float m2 = throttle - pid_pitch - pid_roll - pid_yaw; // anteriore dx
-    float m3 = throttle - pid_pitch + pid_roll + pid_yaw; // anteriore sx
-    float m4 = throttle + pid_pitch + pid_roll - pid_yaw; // posteriore sx
+    m1 = throttle + pid_pitch - pid_roll + pid_yaw; // posteriore dx
+    m2 = throttle - pid_pitch - pid_roll - pid_yaw; // anteriore dx
+    m3 = throttle - pid_pitch + pid_roll + pid_yaw; // anteriore sx
+    m4 = throttle + pid_pitch + pid_roll - pid_yaw; // posteriore sx
 
     // Definizione dei limiti PWM
     // Questo è da vedere, perché dipende dall'ARR
@@ -737,7 +743,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 2;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 5599;
+  htim4.Init.Period = 55999;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)

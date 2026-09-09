@@ -130,14 +130,12 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
 
 		// Scartiamo il primo byte perché si riferisce all'invio dell'indirizzo
 
-		// Giroscopio: Scambio X con Y
-		gyro_data.x = (int16_t)((rx_buffer_dma[4] << 8) | rx_buffer_dma[3]) - gyro_offset_x;
-		gyro_data.y = (int16_t)((rx_buffer_dma[2] << 8) | rx_buffer_dma[1]) - gyro_offset_y;
+		gyro_data.x = (int16_t)((rx_buffer_dma[2] << 8) | rx_buffer_dma[1]) - gyro_offset_x;
+		gyro_data.y = (int16_t)((rx_buffer_dma[4] << 8) | rx_buffer_dma[3]) - gyro_offset_y;
 		gyro_data.z = (int16_t)((rx_buffer_dma[6] << 8) | rx_buffer_dma[5]) - gyro_offset_z;
 
-		// Accelerometro: Scambio X con Y
-		accel_data.x = (int16_t)((rx_buffer_dma[10] << 8) | rx_buffer_dma[9]) - acc_offset_x;
-		accel_data.y = (int16_t)((rx_buffer_dma[8] << 8) | rx_buffer_dma[7]) - acc_offset_y;
+		accel_data.x = (int16_t)((rx_buffer_dma[8] << 8) | rx_buffer_dma[7]) - acc_offset_x;
+		accel_data.y = (int16_t)((rx_buffer_dma[10] << 8) | rx_buffer_dma[9]) - acc_offset_y;
 		accel_data.z = (int16_t)((rx_buffer_dma[12] << 8)| rx_buffer_dma[11]) - acc_offset_z;
 
         data_ready = 1;
@@ -213,15 +211,15 @@ void Calibrate_Sensors(void) {
 
         // Lettura Accelerometro
         if (readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_OUTX_L_A, rawIMU, 6) == HAL_OK) {
-            sum_acc_x += (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
-            sum_acc_y += (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
+            sum_acc_x += (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
+            sum_acc_y += (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
             sum_acc_z += (int16_t)((rawIMU[5] << 8) | rawIMU[4]);
         }
 
         // Lettura Giroscopio
         if (readSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_OUTX_L_G, rawIMU, 6) == HAL_OK) {
-            sum_gyro_x += (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
-            sum_gyro_y += (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
+            sum_gyro_x += (int16_t)((rawIMU[1] << 8) | rawIMU[0]);
+            sum_gyro_y += (int16_t)((rawIMU[3] << 8) | rawIMU[2]);
             sum_gyro_z += (int16_t)((rawIMU[5] << 8) | rawIMU[4]);
         }
 

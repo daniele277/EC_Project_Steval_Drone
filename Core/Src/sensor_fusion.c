@@ -51,13 +51,6 @@ void Altitude_Fusion_Update(LSM6DSR_AxesRaw_t *accel_data, float pressure_data, 
 	// Sottrae l'accelerazione di gravità per ottenere l'accelerazione verticale nel sistema di riferimento fisso
 	float az_linear = (az_earth_g - 1.0f) * G_TO_MS2;
 
-	// Calcola l'errore tra la quota vera (lenta) e quella stimata (veloce)
-	float alt_error = altitude_baro_filtered - altitude_estimated;
-
-	// Corregge la velocità in base all'errore di altitudine per eliminare drift
-	float vel_correction_gain = 2.0f; // Valore da tarare
-	v_z += (alt_error * vel_correction_gain * DT);
-
 	// Integrazione dell'accelerazione sull'asse z per trovare l'altitudine
 	v_z += az_linear * DT;
 	altitude_estimated += v_z * DT;

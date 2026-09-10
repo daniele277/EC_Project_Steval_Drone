@@ -450,8 +450,9 @@ int main(void)
         	  int32_t press_raw = (int32_t) ((raw_pressure_buffer[2] << 16) | (raw_pressure_buffer[1] << 8) | raw_pressure_buffer[0]);
         	  pressure_data = (float) press_raw / 4096.0f;
         	  baro_updated = 1;
-        	  Altitude_Fusion_Update(&accel_data, pressure_data, pressure_zero, baro_updated);
           }
+
+          Altitude_Fusion_Update(&accel_data, pressure_data, pressure_zero, baro_updated);
 
           if(throttle > 10) {
         	  out_altitude = PID_Compute(&pid_altitude, target_altitude, altitude_estimated, DT);

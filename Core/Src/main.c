@@ -67,13 +67,15 @@ LSM6DSR_AxesRaw_t accel_data;
 LSM6DSR_AxesRaw_t gyro_data;
 float pressure_data;
 float altitude_m;
+float altitude_m_filtered;
 float out_altitude = 0.0f;
 uint8_t who_am_i_response_imu = 0;
 uint8_t who_am_i_response_bar = 0;
 uint8_t status_reg;
+uint8_t baro_updated;
 uint8_t tx_buffer_DMA[13];
 uint8_t rx_buffer_DMA[13];
-uint8_t raw_pressure_DMA[3];
+uint8_t raw_pressure_buffer[3];
 float target_pitch = 0.0f;
 float target_roll = 0.0f;
 float target_yaw = 0.0f;
@@ -398,9 +400,9 @@ int main(void)
   writeSPI(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, LSM6DSR_CTRL2_G, 0x6C);
 
   // -- CONFIGURAZIONE BAROMETRO SCRIVENDO IL REGISTRO CTRL_REG1
-  // Valore 0x06 in binario (0b0000 0110)
+  // Valore 0x60 in binario (0b0110 0000)
   // 0110 = ODR a 100 Hz
-  writeSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_CTRL_REG1, 0x06);
+  writeSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_CTRL_REG1, 0x60);
 
   Calibrate_Sensors();
 
@@ -444,12 +446,15 @@ int main(void)
           readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_STATUS, &baro_status, 1);
 
           if(baro_status & 0x01) {
-        	  readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, raw_pressure_DMA, 3);
-        	  int32_t press_raw = (int32_t) ((raw_pressure_DMA[2] << 16) | (raw_pressure_DMA[1] << 8) | raw_pressure_DMA[0]);
+        	  readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, raw_pressure_buffer, 3);
+        	  int32_t press_raw = (int32_t) ((raw_pressure_buffer[2] << 16) | (raw_pressure_buffer[1] << 8) | raw_pressure_buffer[0]);
         	  pressure_data = (float) press_raw / 4096.0f;
-        	  // Formula per convertire la pressione atmosferica in hPa in altitudine relativa in m
-        	  altitude_m = 44330.0f * (1.0f - powf(pressure_data / pressure_zero, 0.190295f));
-              out_altitude = PID_Compute(&pid_altitude, target_altitude, altitude_m, DT_BARO);
+        	  baro_updated = 1;
+        	  Altitude_Fusion_Update(&accel_data, pressure_data, pressure_zero, baro_updated);
+          }
+
+          if(throttle > 10) {
+        	  out_altitude = PID_Compute(&pid_altitude, target_altitude, altitude_estimated, DT);
           }
 
           float final_throttle = throttle + out_altitude;

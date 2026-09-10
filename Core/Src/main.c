@@ -66,15 +66,18 @@ UART_HandleTypeDef huart1;
 LSM6DSR_AxesRaw_t accel_data;
 LSM6DSR_AxesRaw_t gyro_data;
 float pressure_data;
+float altitude_m;
+float out_altitude = 0.0f;
 uint8_t who_am_i_response_imu = 0;
 uint8_t who_am_i_response_bar = 0;
 uint8_t status_reg;
-uint8_t tx_buffer_dma[13];
-uint8_t rx_buffer_dma[13];
-uint8_t rawPressure_DMA[3];
+uint8_t tx_buffer_DMA[13];
+uint8_t rx_buffer_DMA[13];
+uint8_t raw_pressure_DMA[3];
 float target_pitch = 0.0f;
 float target_roll = 0.0f;
 float target_yaw = 0.0f;
+float target_altitude = 0.0f;
 float throttle = 0.0f;
 
 float m1 = 0.0f;
@@ -117,10 +120,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		// Il primo byte da trasmettere è l'indirizzo del registro di partenza
 		// I restanti 12 sono byte dummy inviati dal master per generare il segnale di clock
 		// Ricordiamo infatti che SPI è un protocollo full-duplex!
-	    tx_buffer_dma[0] = LSM6DSR_OUTX_L_G | 0x80;
+	    tx_buffer_DMA[0] = LSM6DSR_OUTX_L_G | 0x80;
 	    HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_RESET);
 	    // Il DMA gestisce l'intera comunicazione master-slave in modo asincrono rispeto al processore
-	    HAL_SPI_TransmitReceive_DMA(&hspi2, tx_buffer_dma, rx_buffer_dma, 13);
+	    HAL_SPI_TransmitReceive_DMA(&hspi2, tx_buffer_DMA, rx_buffer_DMA, 13);
 	}
 }
 
@@ -130,13 +133,13 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
 
 		// Scartiamo il primo byte perché si riferisce all'invio dell'indirizzo
 
-		gyro_data.x = (int16_t)((rx_buffer_dma[2] << 8) | rx_buffer_dma[1]) - gyro_offset_x;
-		gyro_data.y = (int16_t)((rx_buffer_dma[4] << 8) | rx_buffer_dma[3]) - gyro_offset_y;
-		gyro_data.z = (int16_t)((rx_buffer_dma[6] << 8) | rx_buffer_dma[5]) - gyro_offset_z;
+		gyro_data.x = (int16_t)((rx_buffer_DMA[2] << 8) | rx_buffer_DMA[1]) - gyro_offset_x;
+		gyro_data.y = (int16_t)((rx_buffer_DMA[4] << 8) | rx_buffer_DMA[3]) - gyro_offset_y;
+		gyro_data.z = (int16_t)((rx_buffer_DMA[6] << 8) | rx_buffer_DMA[5]) - gyro_offset_z;
 
-		accel_data.x = (int16_t)((rx_buffer_dma[8] << 8) | rx_buffer_dma[7]) - acc_offset_x;
-		accel_data.y = (int16_t)((rx_buffer_dma[10] << 8) | rx_buffer_dma[9]) - acc_offset_y;
-		accel_data.z = (int16_t)((rx_buffer_dma[12] << 8)| rx_buffer_dma[11]) - acc_offset_z;
+		accel_data.x = (int16_t)((rx_buffer_DMA[8] << 8) | rx_buffer_DMA[7]) - acc_offset_x;
+		accel_data.y = (int16_t)((rx_buffer_DMA[10] << 8) | rx_buffer_DMA[9]) - acc_offset_y;
+		accel_data.z = (int16_t)((rx_buffer_DMA[12] << 8)| rx_buffer_DMA[11]) - acc_offset_z;
 
         data_ready = 1;
 	}
@@ -198,10 +201,11 @@ void Calibrate_Sensors(void) {
 
     uint8_t rawIMU[6];
     uint8_t rawPressure[3];
-    uint16_t num_samples = 500;
+    uint16_t num_samples_IMU = 500;
+    uint16_t num_samples_baro = 0;
 
     // Ciclo di campionamento: acquisisce 500 campioni
-    for (uint16_t i = 0; i < num_samples; i++) {
+    for (uint16_t i = 0; i < num_samples_IMU; i++) {
 
     	// Polling bloccante sullo STATUS_REG (indirizzo 0x1E) dell'IMU LSM6DSR
     	// Attende che sia l'accelerometro (XLDA, bit 0) che il giroscopio (GDA, bit 1) abbiano nuovi dati
@@ -224,40 +228,45 @@ void Calibrate_Sensors(void) {
         }
 
         // Lettura Barometro
-        // N.B: LPS22HH è impostato a 100 Hz, un polling specifico sul suo STATUS_REG sarebbe ottimale,
-        // ma essendo la frequenza quasi coincidente all'IMU, la lettura consecutiva è accettabile in questa fase.
-        if (readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, rawPressure, 3) == HAL_OK) {
-            int32_t press_raw = (int32_t)((rawPressure[2] << 16) | (rawPressure[1] << 8) | rawPressure[0]);
-            // Conversione in hPa
-            sum_pressure += (float)press_raw / 4096.0f;
+        // Polling sullo status register
+        uint8_t baro_status;
+        readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_STATUS, &baro_status, 1);
+        if (baro_status & 0x01) {
+        	if (readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, rawPressure, 3) == HAL_OK) {
+                   int32_t press_raw = (int32_t)((rawPressure[2] << 16) | (rawPressure[1] << 8) | rawPressure[0]);
+                   sum_pressure += (float)press_raw / 4096.0f;
+                   num_samples_baro++;
+            }
         }
     }
 
     // -- CALCOLO DELLE MEDIE (OFFSET) --
 
     // Giroscopio
-    gyro_offset_x = sum_gyro_x / num_samples;
-    gyro_offset_y = sum_gyro_y / num_samples;
-    gyro_offset_z = sum_gyro_z / num_samples;
+    gyro_offset_x = sum_gyro_x / num_samples_IMU;
+    gyro_offset_y = sum_gyro_y / num_samples_IMU;
+    gyro_offset_z = sum_gyro_z / num_samples_IMU;
 
     // Accelerometro X e Y
-    acc_offset_x = sum_acc_x / num_samples;
-    acc_offset_y = sum_acc_y / num_samples;
+    acc_offset_x = sum_acc_x / num_samples_IMU;
+    acc_offset_y = sum_acc_y / num_samples_IMU;
 
     // Accelerometro Z
     // Sensibilità nominale per FS +/-4g = 0.122 mg/LSB. 1 g = 1000 / 0.122 = 8196.7 LSB
-    int32_t avg_acc_z = sum_acc_z / num_samples;
+    int32_t avg_acc_z = sum_acc_z / num_samples_IMU;
     acc_offset_z = avg_acc_z - 8197;
 
     // Barometro
-    pressure_zero = sum_pressure / num_samples;
+    if (num_samples_baro > 0) {
+    	pressure_zero = sum_pressure / num_samples_baro;
+    }
 }
 
 void Test_Motors(void)
 {
     // Parametri operativi in termini di valori di registro CCR
     const uint32_t PWM_OFF = 0;       // Duty Cycle 0%
-    const uint32_t PWM_TEST = 500;    // Duty Cycle 25% (500/(1+1999)) per limitare la coppia a vuoto
+    const uint32_t PWM_TEST = 14000;    // Duty Cycle 25% (500/(1+1999)) per limitare la coppia a vuoto
     const uint32_t TIME_TEST_MS = 1000; // Durata dell'azionamento (1 secondo)
     const uint32_t TIME_PAUSE_MS = 500; // Pausa tra i motori
 
@@ -402,9 +411,11 @@ int main(void)
 
   // Inizializzazione dei PID
   PID pid_pitch, pid_roll, pid_yaw;
+  PID pid_altitude;
   PID_Init(&pid_pitch, 100.0f, 10.0f, 0.0f, 400.0f, -400.0f);
   PID_Init(&pid_roll,  100.0f, 10.0f, 0.0f, 400.0f, -400.0f);
   PID_Init(&pid_yaw,   150.0f, 0.0f,  0.0f, 400.0f, -400.0f);
+  PID_Init(&pid_altitude, 50.0f, 5.0f, 20.0f, 150.0f, -150.0f);
 
   /* USER CODE END 2 */
 
@@ -429,8 +440,22 @@ int main(void)
         	  PID_Reset(&pid_yaw);
           }
 
+          uint8_t baro_status = 0;
+          readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_STATUS, &baro_status, 1);
+
+          if(baro_status & 0x01) {
+        	  readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, raw_pressure_DMA, 3);
+        	  int32_t press_raw = (int32_t) ((raw_pressure_DMA[2] << 16) | (raw_pressure_DMA[1] << 8) | raw_pressure_DMA[0]);
+        	  pressure_data = (float) press_raw / 4096.0f;
+        	  // Formula per convertire la pressione atmosferica in hPa in altitudine relativa in m
+        	  altitude_m = 44330.0f * (1.0f - powf(pressure_data / pressure_zero, 0.190295f));
+              out_altitude = PID_Compute(&pid_altitude, target_altitude, altitude_m, DT_BARO);
+          }
+
+          float final_throttle = throttle + out_altitude;
+
           // Motor mixer
-          Motor_Mixer(throttle, out_pitch, out_roll, out_yaw);
+          Motor_Mixer(final_throttle, out_pitch, out_roll, out_yaw);
 
 		  data_ready = 0;
 	  }

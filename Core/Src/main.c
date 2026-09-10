@@ -257,7 +257,7 @@ void Test_Motors(void)
 {
     // Parametri operativi in termini di valori di registro CCR
     const uint32_t PWM_OFF = 0;       // Duty Cycle 0%
-    const uint32_t PWM_TEST = 500;    // Duty Cycle 25% (500/(1+1999)) per limitare la coppia a vuoto
+    const uint32_t PWM_TEST = 1400;    // Duty Cycle 25% (500/(1+55999)) per limitare la coppia a vuoto
     const uint32_t TIME_TEST_MS = 1000; // Durata dell'azionamento (1 secondo)
     const uint32_t TIME_PAUSE_MS = 500; // Pausa tra i motori
 

@@ -406,7 +406,22 @@ int main(void)
 
   Calibrate_Sensors();
 
-  Test_Motors();
+  //Test_Motors();
+
+  // Avvio della generazione del PWM sui 4 canali del Timer 4
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_4);
+
+  // Condizione di sicurezza iniziale: tutti i duty cycle a 0%
+  // La macro __HAL_TIM_SET_COMPARE modifica il valore del CCR a runtime
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, 0);
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_4, 0);
+  // Si forza l'aggiornamento del duty cycle senza aspettare il reset successivo del timer
+  htim4.Instance->EGR = TIM_EGR_UG;
 
   // Avvio timer in modalità interrupt
   HAL_TIM_Base_Start_IT(&htim10);
@@ -449,10 +464,12 @@ int main(void)
         	  readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, raw_pressure_buffer, 3);
         	  int32_t press_raw = (int32_t) ((raw_pressure_buffer[2] << 16) | (raw_pressure_buffer[1] << 8) | raw_pressure_buffer[0]);
         	  pressure_data = (float) press_raw / 4096.0f;
-        	  baro_updated = 1;
+        	  float altitude_raw = 44330.0f * (1.0f - powf(pressure_data / pressure_zero, 0.190295f));
+        	  altitude_baro_filtered = (altitude_baro_filtered * (1.0f - ALPHA_BARO)) + (altitude_raw * ALPHA_BARO);
           }
 
           Altitude_Fusion_Update(&accel_data, pressure_data, pressure_zero, baro_updated);
+          baro_updated = 0; // reset del flag
 
           if(throttle > 10) {
         	  out_altitude = PID_Compute(&pid_altitude, target_altitude, altitude_estimated, DT);

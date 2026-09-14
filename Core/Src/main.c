@@ -26,6 +26,10 @@
 #include <math.h>
 #include "sensor_fusion.h"
 #include "pid.h"
+#include "hci_tl.h"
+#include "bluenrg1_gatt_aci.h"
+#include "bluenrg1_gap_aci.h"
+#include "bluenrg1_hal_aci.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,7 +52,6 @@ ADC_HandleTypeDef hadc1;
 
 I2C_HandleTypeDef hi2c2;
 
-SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
 DMA_HandleTypeDef hdma_spi2_rx;
 DMA_HandleTypeDef hdma_spi2_tx;
@@ -95,6 +98,9 @@ int32_t gyro_offset_x = 0, gyro_offset_y = 0, gyro_offset_z = 0;
 int32_t acc_offset_x = 0,  acc_offset_y = 0,  acc_offset_z = 0;
 float pressure_zero = 0.0f;
 
+// Flag evento BLE
+volatile uint8_t ble_event_pending = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -107,7 +113,6 @@ static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM9_Init(void);
-static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_TIM10_Init(void);
 /* USER CODE BEGIN PFP */
@@ -145,6 +150,14 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
 
         data_ready = 1;
 	}
+}
+
+// Callback ricezione evento BLE: si limita solo ad alzare il flag
+// N.B: NON si legge qui SPI!
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+    if (GPIO_Pin == BLE_IRQ_Pin) {
+        ble_event_pending = 1;
+    }
 }
 
 HAL_StatusTypeDef readSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_addr,  uint8_t *pData, uint16_t size) {
@@ -372,7 +385,6 @@ int main(void)
   MX_USART1_UART_Init();
   MX_TIM4_Init();
   MX_TIM9_Init();
-  MX_SPI1_Init();
   MX_SPI2_Init();
   MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
@@ -441,6 +453,12 @@ int main(void)
   // TBD: La lettura dalla IMU sarà fatta in DMA
   while (1)
   {
+	  if(ble_event_pending == 1) {
+		  ble_event_pending = 0;
+		  // Funzione BlueNRG per processare gli eventi
+		  hci_user_evt_proc();
+	  }
+
 	  if(data_ready == 1) {
 		  // Stima degli angoli
 		  Sensor_Fusion_Update(&accel_data, &gyro_data);
@@ -622,44 +640,6 @@ static void MX_I2C2_Init(void)
 }
 
 /**
-  * @brief SPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI1_Init(void)
-{
-
-  /* USER CODE BEGIN SPI1_Init 0 */
-
-  /* USER CODE END SPI1_Init 0 */
-
-  /* USER CODE BEGIN SPI1_Init 1 */
-
-  /* USER CODE END SPI1_Init 1 */
-  /* SPI1 parameter configuration*/
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 10;
-  if (HAL_SPI_Init(&hspi1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI1_Init 2 */
-
-  /* USER CODE END SPI1_Init 2 */
-
-}
-
-/**
   * @brief SPI2 Initialization Function
   * @param None
   * @retval None
@@ -787,9 +767,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 2;
+  htim4.Init.Prescaler = 84;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 55999;
+  htim4.Init.Period = 1999;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -894,7 +874,7 @@ static void MX_TIM10_Init(void)
   htim10.Instance = TIM10;
   htim10.Init.Prescaler = 8076;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 24;
+  htim10.Init.Period = 99;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim10) != HAL_OK)

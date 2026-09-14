@@ -395,7 +395,22 @@ int main(void)
 
   Calibrate_Sensors();
 
-  Test_Motors();
+  //Test_Motors();
+
+  // Avvio della generazione del PWM sui 4 canali del Timer 4
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_4);
+
+  // Condizione di sicurezza iniziale: tutti i duty cycle a 0%
+  // La macro __HAL_TIM_SET_COMPARE modifica il valore del CCR a runtime
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, 0);
+  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_4, 0);
+  // Si forza l'aggiornamento del duty cycle senza aspettare il reset successivo del timer
+  htim4.Instance->EGR = TIM_EGR_UG;
 
   // Avvio timer in modalità interrupt
   HAL_TIM_Base_Start_IT(&htim10);

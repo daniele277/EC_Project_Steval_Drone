@@ -75,7 +75,7 @@ uint8_t rawPressure_DMA[3];
 float target_pitch = 0.0f;
 float target_roll = 0.0f;
 float target_yaw = 0.0f;
-float throttle = 0.0f;
+float throttle = 15000.0f;
 
 float m1 = 0.0f;
 float m2 = 0.0f;
@@ -305,7 +305,7 @@ void Motor_Mixer(float throttle, float pid_pitch, float pid_roll, float pid_yaw)
     float pwm_max = 55999.0f;  // Duty cycle massimo al 100%
 
     // Sicurezza: motori spenti se il gas è a zero
-    if (throttle < 10.0f) {
+    /*if (throttle < 10.0f) {
         m1 = 0; m2 = 0; m3 = 0; m4 = 0;
     } else {
         // Saturazione sicura dei valori
@@ -313,7 +313,13 @@ void Motor_Mixer(float throttle, float pid_pitch, float pid_roll, float pid_yaw)
         if (m2 > pwm_max) m2 = pwm_max; else if (m2 < pwm_min) m2 = pwm_min;
         if (m3 > pwm_max) m3 = pwm_max; else if (m3 < pwm_min) m3 = pwm_min;
         if (m4 > pwm_max) m4 = pwm_max; else if (m4 < pwm_min) m4 = pwm_min;
-    }
+    }*/
+
+    // Saturazione sicura dei valori
+    if (m1 > pwm_max) m1 = pwm_max;
+    if (m2 > pwm_max) m2 = pwm_max;
+    if (m3 > pwm_max) m3 = pwm_max;
+    if (m4 > pwm_max) m4 = pwm_max;
 
     // Scrittura nei registri del timer utilizzando la macro HAL
     __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, (uint32_t)m1);
@@ -417,8 +423,8 @@ int main(void)
 
   // Inizializzazione dei PID
   PID pid_pitch, pid_roll, pid_yaw;
-  PID_Init(&pid_pitch, 100.0f, 10.0f, 0.0f, 400.0f, -400.0f);
-  PID_Init(&pid_roll,  100.0f, 10.0f, 0.0f, 400.0f, -400.0f);
+  PID_Init(&pid_pitch, 150.0f, 10.0f, 10.0f, 55999.0f, -55999.0f);
+  PID_Init(&pid_roll,  150.0f, 10.0f, 10.0f, 55999.0f, -55999.0f);
   PID_Init(&pid_yaw,   150.0f, 0.0f,  0.0f, 400.0f, -400.0f);
 
   /* USER CODE END 2 */
@@ -437,12 +443,15 @@ int main(void)
 		  float out_roll  = PID_Compute(&pid_roll, target_roll, roll_est, DT);
           float out_yaw   = PID_Compute(&pid_yaw, target_yaw, yaw_est, DT);
 
+          out_roll = 0.0f;
+          out_yaw = 0.0f;
+
           // Resetta la somma integrale dei PID quando il drone è fermo
-          if(throttle < 10) {
+          /*if(throttle < 10) {
         	  PID_Reset(&pid_pitch);
         	  PID_Reset(&pid_roll);
         	  PID_Reset(&pid_yaw);
-          }
+          }*/
 
           // Motor mixer
           Motor_Mixer(throttle, out_pitch, out_roll, out_yaw);

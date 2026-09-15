@@ -515,6 +515,11 @@ int main(void)
 		  // Stima degli angoli
 		  Sensor_Fusion_Update(&accel_data, &gyro_data);
 
+		  target_pitch = setpoint.pitch;
+		  target_roll = setpoint.roll;
+		  target_yaw = setpoint.yaw;
+		  throttle = setpoint.throttle;
+
 		  // Calcolo azione di controllo
 		  float out_pitch = PID_Compute(&pid_pitch, target_pitch, pitch_est, DT);
 		  float out_roll  = PID_Compute(&pid_roll, target_roll, roll_est, DT);

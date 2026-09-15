@@ -24,12 +24,14 @@
 #include "lsm6dsr.h"
 #include "lps22hh.h"
 #include <math.h>
+#include <string.h>
 #include "sensor_fusion.h"
 #include "pid.h"
 #include "hci_tl.h"
 #include "bluenrg1_gatt_aci.h"
 #include "bluenrg1_gap_aci.h"
 #include "bluenrg1_hal_aci.h"
+#include "bluenrg1_events.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -101,6 +103,20 @@ float pressure_zero = 0.0f;
 // Flag evento BLE
 volatile uint8_t ble_event_pending = 0;
 
+// Handle servizio e caratteristica
+uint16_t drone_service_handle;
+uint16_t rx_setpoints_handle;
+
+// Struct setpoint
+typedef struct {
+	float pitch;
+	float roll;
+	float yaw;
+	float throttle;
+} SetpointData_t;
+
+SetpointData_t setpoint;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -121,6 +137,36 @@ static void MX_TIM10_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+// Inizializza servizio e caratteristica GATT
+void Init_Drone_BLE_Service(void) {
+    tBleStatus ret;
+
+    // UUID a 128 bit del servizio: 669a0c20-0008-417c-a496-d4bd8253d865
+    Service_UUID_t service_uuid;
+    uint8_t srv_uuid[16] = {0x65,0xd8,0x53,0x82,0xbd,0xd4,0x96,0xa4,0x7c,0x41,0x08,0x00,0x20,0x0c,0x9a,0x66};
+
+    // Crea il servizio e salva il suo handle in drone_service_handle
+    memcpy(service_uuid.Service_UUID_128, srv_uuid, 16);
+    aci_gatt_add_service(UUID_TYPE_128, &service_uuid, PRIMARY_SERVICE, 7, &drone_service_handle);
+
+    // UUID a 128 bit della caratteristica: 669a0c21-0008-417c-a496-d4bd8253d865
+    Char_UUID_t char_uuid;
+    uint8_t chr_uuid[16] = {0x65,0xd8,0x53,0x82,0xbd,0xd4,0x96,0xa4,0x7c,0x41,0x08,0x00,0x21,0x0c,0x9a,0x66};
+
+    // Crea la caratteristica collegata al servizio appena creato
+    memcpy(char_uuid.Char_UUID_128, chr_uuid, 16);
+    aci_gatt_add_char(drone_service_handle,	// handle del servizio
+                      UUID_TYPE_128,		// tipo di UUID
+                      &char_uuid,			// puntatore all'UUID
+                      16,					// lunghezza dati in byte
+                      CHAR_PROP_WRITE | CHAR_PROP_WRITE_WITHOUT_RESP,	// permessi di scrittura
+                      ATTR_PERMISSION_NONE,	// nessuna sicurezza
+                      GATT_NOTIFY_ATTRIBUTE_WRITE,	// interrupt quando avviene la scrittura dell'attributo
+                      16,					// dimensione chiave crittografica
+                      0,					// lunghezza fissa
+                      &rx_setpoints_handle);	// salva l'handle della caratteristica in rx_setpoint_handle
+}
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if(htim->Instance == TIM10) {
@@ -159,6 +205,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         ble_event_pending = 1;
     }
 }
+
 
 HAL_StatusTypeDef readSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_addr,  uint8_t *pData, uint16_t size) {
 
@@ -388,6 +435,11 @@ int main(void)
   MX_SPI2_Init();
   MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
+
+  // Inizializza il modulo BLE
+  hci_init();
+  // Crea il servizio e la caratteristica
+  Init_Drone_BLE_Service();
 
   // Disabilita inizialmente i sensori assicurandoti che i pin CS siano HIGH
   HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_SET);
@@ -1034,6 +1086,20 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+// Funzione che intercetta l'evento di modifica dell'attributo
+void aci_gatt_attribute_modified_event(uint16_t Connection_Handle,
+                                       uint16_t Attr_Handle,
+                                       uint16_t Offset,
+                                       uint16_t Attr_Data_Length,
+                                       uint8_t Attr_Data[]) {
+
+    if (Attr_Handle == (rx_setpoints_handle + 1)) {
+        if (Attr_Data_Length == sizeof(SetpointData_t)) {
+            memcpy(&setpoint, Attr_Data, sizeof(SetpointData_t));
+        }
+    }
+}
 
 /* USER CODE END 4 */
 

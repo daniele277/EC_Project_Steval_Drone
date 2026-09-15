@@ -8001,66 +8001,65 @@ LOAD /home/davide/STMicroelectronics/makeself_dir_7qmUQT/y/plugins/com.st.stm32c
  .text.SPI1_MspInit
                 0x08001058       0xc0 ./Core/Src/custom_bus.o
  .text.BLE_Setup
-                0x08001118       0xd0 ./Core/Src/main.o
+                0x08001118       0xc8 ./Core/Src/main.o
                 0x08001118                BLE_Setup
  .text.Init_Drone_BLE_Service
-                0x080011e8       0x88 ./Core/Src/main.o
-                0x080011e8                Init_Drone_BLE_Service
+                0x080011e0       0x88 ./Core/Src/main.o
+                0x080011e0                Init_Drone_BLE_Service
  .text.HAL_TIM_PeriodElapsedCallback
-                0x08001270       0x4c ./Core/Src/main.o
-                0x08001270                HAL_TIM_PeriodElapsedCallback
+                0x08001268       0x4c ./Core/Src/main.o
+                0x08001268                HAL_TIM_PeriodElapsedCallback
  .text.HAL_SPI_TxRxCpltCallback
-                0x080012bc      0x140 ./Core/Src/main.o
-                0x080012bc                HAL_SPI_TxRxCpltCallback
- .text.readSPI  0x080013fc       0x6c ./Core/Src/main.o
-                0x080013fc                readSPI
+                0x080012b4      0x140 ./Core/Src/main.o
+                0x080012b4                HAL_SPI_TxRxCpltCallback
+ .text.readSPI  0x080013f4       0x6c ./Core/Src/main.o
+                0x080013f4                readSPI
  .text.writeSPI
-                0x08001468       0x74 ./Core/Src/main.o
-                0x08001468                writeSPI
+                0x08001460       0x74 ./Core/Src/main.o
+                0x08001460                writeSPI
  .text.Calibrate_Sensors
-                0x080014dc      0x234 ./Core/Src/main.o
-                0x080014dc                Calibrate_Sensors
+                0x080014d4      0x234 ./Core/Src/main.o
+                0x080014d4                Calibrate_Sensors
  .text.Motor_Mixer
-                0x08001710      0x1e4 ./Core/Src/main.o
-                0x08001710                Motor_Mixer
- .text.main     0x080018f4      0x4a4 ./Core/Src/main.o
-                0x080018f4                main
+                0x08001708      0x1e4 ./Core/Src/main.o
+                0x08001708                Motor_Mixer
+ .text.main     0x080018ec      0x4b0 ./Core/Src/main.o
+                0x080018ec                main
  .text.SystemClock_Config
-                0x08001d98       0xd4 ./Core/Src/main.o
-                0x08001d98                SystemClock_Config
+                0x08001d9c       0xd4 ./Core/Src/main.o
+                0x08001d9c                SystemClock_Config
  .text.MX_ADC1_Init
-                0x08001e6c       0xa4 ./Core/Src/main.o
+                0x08001e70       0xa4 ./Core/Src/main.o
  .text.MX_I2C2_Init
-                0x08001f10       0x5c ./Core/Src/main.o
+                0x08001f14       0x5c ./Core/Src/main.o
  .text.MX_SPI2_Init
-                0x08001f6c       0x6c ./Core/Src/main.o
+                0x08001f70       0x6c ./Core/Src/main.o
  .text.MX_TIM2_Init
-                0x08001fd8      0x120 ./Core/Src/main.o
+                0x08001fdc      0x120 ./Core/Src/main.o
  .text.MX_TIM4_Init
-                0x080020f8      0x130 ./Core/Src/main.o
+                0x080020fc      0x130 ./Core/Src/main.o
  .text.MX_TIM9_Init
-                0x08002228       0x74 ./Core/Src/main.o
+                0x0800222c       0x74 ./Core/Src/main.o
  .text.MX_TIM10_Init
-                0x0800229c       0x48 ./Core/Src/main.o
+                0x080022a0       0x48 ./Core/Src/main.o
  .text.MX_USART1_UART_Init
-                0x080022e4       0x54 ./Core/Src/main.o
+                0x080022e8       0x54 ./Core/Src/main.o
  .text.MX_DMA_Init
-                0x08002338       0x50 ./Core/Src/main.o
+                0x0800233c       0x50 ./Core/Src/main.o
  .text.MX_GPIO_Init
-                0x08002388      0x1c0 ./Core/Src/main.o
+                0x0800238c      0x1c0 ./Core/Src/main.o
  .text.Error_Handler
-                0x08002548        0xc ./Core/Src/main.o
-                0x08002548                Error_Handler
+                0x0800254c        0xc ./Core/Src/main.o
+                0x0800254c                Error_Handler
  .text.PID_Init
-                0x08002554       0x7c ./Core/Src/pid.o
-                0x08002554                PID_Init
+                0x08002558       0x7c ./Core/Src/pid.o
+                0x08002558                PID_Init
  .text.PID_Reset
-                0x080025d0       0x1c ./Core/Src/pid.o
-                0x080025d0                PID_Reset
+                0x080025d4       0x1c ./Core/Src/pid.o
+                0x080025d4                PID_Reset
  .text.PID_Compute
-                0x080025ec      0x178 ./Core/Src/pid.o
-                0x080025ec                PID_Compute
- *fill*         0x08002764        0x4 
+                0x080025f0      0x178 ./Core/Src/pid.o
+                0x080025f0                PID_Compute
  .text.Sensor_Fusion_Update
                 0x08002768      0x1d4 ./Core/Src/sensor_fusion.o
                 0x08002768                Sensor_Fusion_Update
@@ -9072,61 +9071,61 @@ LOAD /home/davide/STMicroelectronics/makeself_dir_7qmUQT/y/plugins/com.st.stm32c
 LOAD /home/davide/STMicroelectronics/makeself_dir_7qmUQT/y/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.linux64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+fp/hard/libm.a
 LOAD /home/davide/STMicroelectronics/makeself_dir_7qmUQT/y/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.linux64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/thumb/v7e-m+fp/hard/libgcc.a
 
-.debug_info     0x00000000    0x1d928
+.debug_info     0x00000000    0x1d954
  .debug_info    0x00000000      0xa60 ./BlueNRG_2/Target/hci_tl_interface.o
  .debug_info    0x00000a60      0xd9a ./Core/Src/custom_bus.o
- .debug_info    0x000017fa     0x29c8 ./Core/Src/main.o
- .debug_info    0x000041c2      0x1de ./Core/Src/pid.o
- .debug_info    0x000043a0      0x360 ./Core/Src/sensor_fusion.o
- .debug_info    0x00004700     0x1929 ./Core/Src/stm32f4xx_hal_msp.o
- .debug_info    0x00006029      0xd5d ./Core/Src/stm32f4xx_it.o
- .debug_info    0x00006d86      0x53e ./Core/Src/system_stm32f4xx.o
- .debug_info    0x000072c4       0x30 ./Core/Startup/startup_stm32f401ccux.o
- .debug_info    0x000072f4      0x8bb ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.o
- .debug_info    0x00007baf      0xce0 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.o
- .debug_info    0x0000888f      0xcf6 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.o
- .debug_info    0x00009585      0x8e6 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.o
- .debug_info    0x00009e6b      0x503 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.o
- .debug_info    0x0000a36e      0x6f9 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.o
- .debug_info    0x0000aa67     0x2426 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.o
- .debug_info    0x0000ce8d      0x905 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.o
- .debug_info    0x0000d792     0x1530 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.o
- .debug_info    0x0000ecc2     0x2996 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.o
- .debug_info    0x00011658     0x14d4 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.o
- .debug_info    0x00012b2c     0x2f56 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.o
- .debug_info    0x00015a82     0x2d18 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gap_aci.o
- .debug_info    0x0001879a     0x311e ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gatt_aci.o
- .debug_info    0x0001b8b8     0x10f7 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_hal_aci.o
- .debug_info    0x0001c9af      0x8a3 ./Middlewares/ST/BlueNRG-2/hci/hci_tl_patterns/Basic/hci_tl.o
- .debug_info    0x0001d252      0x6d6 ./Middlewares/ST/BlueNRG-2/utils/ble_list.o
+ .debug_info    0x000017fa     0x29f4 ./Core/Src/main.o
+ .debug_info    0x000041ee      0x1de ./Core/Src/pid.o
+ .debug_info    0x000043cc      0x360 ./Core/Src/sensor_fusion.o
+ .debug_info    0x0000472c     0x1929 ./Core/Src/stm32f4xx_hal_msp.o
+ .debug_info    0x00006055      0xd5d ./Core/Src/stm32f4xx_it.o
+ .debug_info    0x00006db2      0x53e ./Core/Src/system_stm32f4xx.o
+ .debug_info    0x000072f0       0x30 ./Core/Startup/startup_stm32f401ccux.o
+ .debug_info    0x00007320      0x8bb ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.o
+ .debug_info    0x00007bdb      0xce0 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.o
+ .debug_info    0x000088bb      0xcf6 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.o
+ .debug_info    0x000095b1      0x8e6 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.o
+ .debug_info    0x00009e97      0x503 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.o
+ .debug_info    0x0000a39a      0x6f9 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.o
+ .debug_info    0x0000aa93     0x2426 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.o
+ .debug_info    0x0000ceb9      0x905 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.o
+ .debug_info    0x0000d7be     0x1530 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.o
+ .debug_info    0x0000ecee     0x2996 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.o
+ .debug_info    0x00011684     0x14d4 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.o
+ .debug_info    0x00012b58     0x2f56 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.o
+ .debug_info    0x00015aae     0x2d18 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gap_aci.o
+ .debug_info    0x000187c6     0x311e ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gatt_aci.o
+ .debug_info    0x0001b8e4     0x10f7 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_hal_aci.o
+ .debug_info    0x0001c9db      0x8a3 ./Middlewares/ST/BlueNRG-2/hci/hci_tl_patterns/Basic/hci_tl.o
+ .debug_info    0x0001d27e      0x6d6 ./Middlewares/ST/BlueNRG-2/utils/ble_list.o
 
-.debug_abbrev   0x00000000     0x37fb
+.debug_abbrev   0x00000000     0x37f9
  .debug_abbrev  0x00000000      0x2ac ./BlueNRG_2/Target/hci_tl_interface.o
  .debug_abbrev  0x000002ac      0x2b7 ./Core/Src/custom_bus.o
- .debug_abbrev  0x00000563      0x396 ./Core/Src/main.o
- .debug_abbrev  0x000008f9      0x106 ./Core/Src/pid.o
- .debug_abbrev  0x000009ff      0x153 ./Core/Src/sensor_fusion.o
- .debug_abbrev  0x00000b52      0x260 ./Core/Src/stm32f4xx_hal_msp.o
- .debug_abbrev  0x00000db2      0x1cd ./Core/Src/stm32f4xx_it.o
- .debug_abbrev  0x00000f7f      0x11a ./Core/Src/system_stm32f4xx.o
- .debug_abbrev  0x00001099       0x24 ./Core/Startup/startup_stm32f401ccux.o
- .debug_abbrev  0x000010bd      0x24b ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.o
- .debug_abbrev  0x00001308      0x20e ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.o
- .debug_abbrev  0x00001516      0x31d ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.o
- .debug_abbrev  0x00001833      0x221 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.o
- .debug_abbrev  0x00001a54      0x1d1 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.o
- .debug_abbrev  0x00001c25      0x1d3 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.o
- .debug_abbrev  0x00001df8      0x2bc ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.o
- .debug_abbrev  0x000020b4      0x2b6 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.o
- .debug_abbrev  0x0000236a      0x276 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.o
- .debug_abbrev  0x000025e0      0x28b ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.o
- .debug_abbrev  0x0000286b      0x296 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.o
- .debug_abbrev  0x00002b01      0x31b ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.o
- .debug_abbrev  0x00002e1c      0x1c3 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gap_aci.o
- .debug_abbrev  0x00002fdf      0x1e4 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gatt_aci.o
- .debug_abbrev  0x000031c3      0x1dd ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_hal_aci.o
- .debug_abbrev  0x000033a0      0x2d2 ./Middlewares/ST/BlueNRG-2/hci/hci_tl_patterns/Basic/hci_tl.o
- .debug_abbrev  0x00003672      0x189 ./Middlewares/ST/BlueNRG-2/utils/ble_list.o
+ .debug_abbrev  0x00000563      0x394 ./Core/Src/main.o
+ .debug_abbrev  0x000008f7      0x106 ./Core/Src/pid.o
+ .debug_abbrev  0x000009fd      0x153 ./Core/Src/sensor_fusion.o
+ .debug_abbrev  0x00000b50      0x260 ./Core/Src/stm32f4xx_hal_msp.o
+ .debug_abbrev  0x00000db0      0x1cd ./Core/Src/stm32f4xx_it.o
+ .debug_abbrev  0x00000f7d      0x11a ./Core/Src/system_stm32f4xx.o
+ .debug_abbrev  0x00001097       0x24 ./Core/Startup/startup_stm32f401ccux.o
+ .debug_abbrev  0x000010bb      0x24b ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.o
+ .debug_abbrev  0x00001306      0x20e ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.o
+ .debug_abbrev  0x00001514      0x31d ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.o
+ .debug_abbrev  0x00001831      0x221 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.o
+ .debug_abbrev  0x00001a52      0x1d1 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.o
+ .debug_abbrev  0x00001c23      0x1d3 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.o
+ .debug_abbrev  0x00001df6      0x2bc ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.o
+ .debug_abbrev  0x000020b2      0x2b6 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.o
+ .debug_abbrev  0x00002368      0x276 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.o
+ .debug_abbrev  0x000025de      0x28b ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.o
+ .debug_abbrev  0x00002869      0x296 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.o
+ .debug_abbrev  0x00002aff      0x31b ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.o
+ .debug_abbrev  0x00002e1a      0x1c3 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gap_aci.o
+ .debug_abbrev  0x00002fdd      0x1e4 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gatt_aci.o
+ .debug_abbrev  0x000031c1      0x1dd ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_hal_aci.o
+ .debug_abbrev  0x0000339e      0x2d2 ./Middlewares/ST/BlueNRG-2/hci/hci_tl_patterns/Basic/hci_tl.o
+ .debug_abbrev  0x00003670      0x189 ./Middlewares/ST/BlueNRG-2/utils/ble_list.o
 
 .debug_aranges  0x00000000     0x18a0
  .debug_aranges
@@ -9352,39 +9351,39 @@ LOAD /home/davide/STMicroelectronics/makeself_dir_7qmUQT/y/plugins/com.st.stm32c
  .debug_macro   0x0001ac52       0x16 ./Middlewares/ST/BlueNRG-2/utils/ble_list.o
  .debug_macro   0x0001ac68       0x56 ./Middlewares/ST/BlueNRG-2/utils/ble_list.o
 
-.debug_line     0x00000000    0x1e025
+.debug_line     0x00000000    0x1e026
  .debug_line    0x00000000      0xc3a ./BlueNRG_2/Target/hci_tl_interface.o
  .debug_line    0x00000c3a      0x957 ./Core/Src/custom_bus.o
- .debug_line    0x00001591     0x1492 ./Core/Src/main.o
- .debug_line    0x00002a23      0x11f ./Core/Src/pid.o
- .debug_line    0x00002b42      0x6f2 ./Core/Src/sensor_fusion.o
- .debug_line    0x00003234      0xa6b ./Core/Src/stm32f4xx_hal_msp.o
- .debug_line    0x00003c9f      0x986 ./Core/Src/stm32f4xx_it.o
- .debug_line    0x00004625      0x800 ./Core/Src/system_stm32f4xx.o
- .debug_line    0x00004e25       0x7a ./Core/Startup/startup_stm32f401ccux.o
- .debug_line    0x00004e9f      0xa7f ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.o
- .debug_line    0x0000591e     0x11c7 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.o
- .debug_line    0x00006ae5      0xd4c ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.o
- .debug_line    0x00007831      0xfe8 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.o
- .debug_line    0x00008819      0xa84 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.o
- .debug_line    0x0000929d      0xb95 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.o
- .debug_line    0x00009e32     0x3b29 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.o
- .debug_line    0x0000d95b      0xe89 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.o
- .debug_line    0x0000e7e4     0x1d17 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.o
- .debug_line    0x000104fb     0x35c1 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.o
- .debug_line    0x00013abc     0x1977 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.o
- .debug_line    0x00015433     0x25c4 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.o
- .debug_line    0x000179f7     0x1bde ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gap_aci.o
- .debug_line    0x000195d5     0x1dc2 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gatt_aci.o
- .debug_line    0x0001b397     0x1213 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_hal_aci.o
- .debug_line    0x0001c5aa      0xda5 ./Middlewares/ST/BlueNRG-2/hci/hci_tl_patterns/Basic/hci_tl.o
- .debug_line    0x0001d34f      0xcd6 ./Middlewares/ST/BlueNRG-2/utils/ble_list.o
+ .debug_line    0x00001591     0x1493 ./Core/Src/main.o
+ .debug_line    0x00002a24      0x11f ./Core/Src/pid.o
+ .debug_line    0x00002b43      0x6f2 ./Core/Src/sensor_fusion.o
+ .debug_line    0x00003235      0xa6b ./Core/Src/stm32f4xx_hal_msp.o
+ .debug_line    0x00003ca0      0x986 ./Core/Src/stm32f4xx_it.o
+ .debug_line    0x00004626      0x800 ./Core/Src/system_stm32f4xx.o
+ .debug_line    0x00004e26       0x7a ./Core/Startup/startup_stm32f401ccux.o
+ .debug_line    0x00004ea0      0xa7f ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.o
+ .debug_line    0x0000591f     0x11c7 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.o
+ .debug_line    0x00006ae6      0xd4c ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.o
+ .debug_line    0x00007832      0xfe8 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.o
+ .debug_line    0x0000881a      0xa84 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.o
+ .debug_line    0x0000929e      0xb95 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.o
+ .debug_line    0x00009e33     0x3b29 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.o
+ .debug_line    0x0000d95c      0xe89 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.o
+ .debug_line    0x0000e7e5     0x1d17 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.o
+ .debug_line    0x000104fc     0x35c1 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.o
+ .debug_line    0x00013abd     0x1977 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.o
+ .debug_line    0x00015434     0x25c4 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.o
+ .debug_line    0x000179f8     0x1bde ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gap_aci.o
+ .debug_line    0x000195d6     0x1dc2 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_gatt_aci.o
+ .debug_line    0x0001b398     0x1213 ./Middlewares/ST/BlueNRG-2/hci/controller/bluenrg1_hal_aci.o
+ .debug_line    0x0001c5ab      0xda5 ./Middlewares/ST/BlueNRG-2/hci/hci_tl_patterns/Basic/hci_tl.o
+ .debug_line    0x0001d350      0xcd6 ./Middlewares/ST/BlueNRG-2/utils/ble_list.o
 
 .debug_str      0x00000000    0xa7af7
  .debug_str     0x00000000    0xa7af7 ./BlueNRG_2/Target/hci_tl_interface.o
                               0x98efa (size before relaxing)
  .debug_str     0x000a7af7    0x95bb3 ./Core/Src/custom_bus.o
- .debug_str     0x000a7af7    0x9fc4a ./Core/Src/main.o
+ .debug_str     0x000a7af7    0x9fc5d ./Core/Src/main.o
  .debug_str     0x000a7af7     0x2eff ./Core/Src/pid.o
  .debug_str     0x000a7af7     0x9368 ./Core/Src/sensor_fusion.o
  .debug_str     0x000a7af7    0x96727 ./Core/Src/stm32f4xx_hal_msp.o

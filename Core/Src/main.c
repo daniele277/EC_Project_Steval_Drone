@@ -71,8 +71,6 @@ UART_HandleTypeDef huart1;
 LSM6DSR_AxesRaw_t accel_data;
 LSM6DSR_AxesRaw_t gyro_data;
 float pressure_data;
-float altitude_m;
-float altitude_m_filtered;
 float out_altitude = 0.0f;
 uint8_t who_am_i_response_imu = 0;
 uint8_t who_am_i_response_bar = 0;
@@ -81,16 +79,23 @@ uint8_t baro_updated;
 uint8_t tx_buffer_DMA[13];
 uint8_t rx_buffer_DMA[13];
 uint8_t raw_pressure_buffer[3];
+
+// Vriabili di controllo e target
 float target_pitch = 0.0f;
 float target_roll = 0.0f;
 float target_yaw = 0.0f;
 float target_altitude = 0.0f;
 float throttle = 0.0f;
 
-float m1 = 0.0f;
-float m2 = 0.0f;
-float m3 = 0.0f;
-float m4 = 0.0f;
+// Variabili per i PID
+float out_pitch = 0.0f;
+float out_roll = 0.0f;
+float out_yaw = 0.0f;
+float final_throttle = 0.0f;
+
+// Variabili per il barometro
+int32_t press_raw = 0;
+float altitude_raw = 0.0f;
 
 // Flag dati pront
 volatile uint8_t data_ready = 0;
@@ -137,6 +142,41 @@ static void MX_TIM10_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void BLE_Setup(void) {
+    // Il chip BlueNRG necessita di un impulso di reset all'avvio sul pin BLE_RSTN
+    HAL_GPIO_WritePin(BLE_RSTN_GPIO_Port, BLE_RSTN_Pin, GPIO_PIN_RESET);
+    HAL_Delay(5);
+    HAL_GPIO_WritePin(BLE_RSTN_GPIO_Port, BLE_RSTN_Pin, GPIO_PIN_SET);
+    HAL_Delay(5);
+
+    // Inizializzazione del livello di trasporto (SPI)
+    hci_init(NULL, NULL);
+
+    // Impostazione del MAC Address (in Little Endian!)
+    uint8_t bdaddr[] = {0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12};
+    aci_hal_write_config_data(CONFIG_DATA_PUBADDR_OFFSET, CONFIG_DATA_PUBADDR_LEN, bdaddr);
+
+    // Inizializzazione GATT e GAP
+    uint16_t gap_service_handle, gap_dev_name_char_handle, gap_appearance_char_handle;
+    aci_gatt_init();
+
+    // Configura il drone come "Periferica"
+    aci_gap_init(GAP_PERIPHERAL_ROLE, 0, 0x07,
+                 &gap_service_handle, &gap_dev_name_char_handle, &gap_appearance_char_handle);
+
+    // Impostazione del nome del dispositivo "DRONE"
+    uint8_t device_name[] = {'D', 'R', 'O', 'N', 'E'};
+    aci_gatt_update_char_value(gap_service_handle, gap_dev_name_char_handle, 0, sizeof(device_name), device_name);
+
+    // Crea servizio e caratteristica
+    Init_Drone_BLE_Service();
+
+    // Avvia l'Advertising, rendendo visibile il drone
+    // Intervallo di advertising tra 160ms (0x0100 * 0.625ms) e 320ms (0x0200 * 0.625ms)
+    aci_gap_set_discoverable(ADV_IND, 0x0100, 0x0200, PUBLIC_ADDR, NO_WHITE_LIST_USE,
+                             0, NULL, 0, NULL, 0, 0);
+}
 
 // Inizializza servizio e caratteristica GATT
 void Init_Drone_BLE_Service(void) {
@@ -365,10 +405,10 @@ void Test_Motors(void)
 
 void Motor_Mixer(float throttle, float pid_pitch, float pid_roll, float pid_yaw) {
     // Matrice di motor mixing
-    m1 = throttle + pid_pitch - pid_roll + pid_yaw; // posteriore dx
-    m2 = throttle - pid_pitch - pid_roll - pid_yaw; // anteriore dx
-    m3 = throttle - pid_pitch + pid_roll + pid_yaw; // anteriore sx
-    m4 = throttle + pid_pitch + pid_roll - pid_yaw; // posteriore sx
+    float m1 = throttle + pid_pitch - pid_roll + pid_yaw; // posteriore dx
+    float m2 = throttle - pid_pitch - pid_roll - pid_yaw; // anteriore dx
+    float m3 = throttle - pid_pitch + pid_roll + pid_yaw; // anteriore sx
+    float m4 = throttle + pid_pitch + pid_roll - pid_yaw; // posteriore sx
 
     // Definizione dei limiti PWM
     // Questo è da vedere, perché dipende dall'ARR
@@ -436,10 +476,8 @@ int main(void)
   MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
 
-  // Inizializza il modulo BLE
-  hci_init();
-  // Crea il servizio e la caratteristica
-  Init_Drone_BLE_Service();
+  // BLE setup
+  BLE_Setup();
 
   // Disabilita inizialmente i sensori assicurandoti che i pin CS siano HIGH
   HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_SET);
@@ -498,6 +536,8 @@ int main(void)
   PID_Init(&pid_yaw,   150.0f, 0.0f,  0.0f, 400.0f, -400.0f);
   PID_Init(&pid_altitude, 50.0f, 5.0f, 20.0f, 150.0f, -150.0f);
 
+  uint8_t baro_status;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -521,9 +561,9 @@ int main(void)
 		  throttle = setpoint.throttle;
 
 		  // Calcolo azione di controllo
-		  float out_pitch = PID_Compute(&pid_pitch, target_pitch, pitch_est, DT);
-		  float out_roll  = PID_Compute(&pid_roll, target_roll, roll_est, DT);
-          float out_yaw   = PID_Compute(&pid_yaw, target_yaw, yaw_est, DT);
+		  out_pitch = PID_Compute(&pid_pitch, target_pitch, pitch_est, DT);
+		  out_roll  = PID_Compute(&pid_roll, target_roll, roll_est, DT);
+          out_yaw   = PID_Compute(&pid_yaw, target_yaw, yaw_est, DT);
 
           // Resetta la somma integrale dei PID quando il drone è fermo
           if(throttle < 10) {
@@ -532,14 +572,14 @@ int main(void)
         	  PID_Reset(&pid_yaw);
           }
 
-          uint8_t baro_status = 0;
+          baro_status = 0;
           readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_STATUS, &baro_status, 1);
 
           if(baro_status & 0x01) {
         	  readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, raw_pressure_buffer, 3);
-        	  int32_t press_raw = (int32_t) ((raw_pressure_buffer[2] << 16) | (raw_pressure_buffer[1] << 8) | raw_pressure_buffer[0]);
+        	  press_raw = (int32_t) ((raw_pressure_buffer[2] << 16) | (raw_pressure_buffer[1] << 8) | raw_pressure_buffer[0]);
         	  pressure_data = (float) press_raw / 4096.0f;
-        	  float altitude_raw = 44330.0f * (1.0f - powf(pressure_data / pressure_zero, 0.190295f));
+        	  altitude_raw = 44330.0f * (1.0f - powf(pressure_data / pressure_zero, 0.190295f));
         	  altitude_baro_filtered = (altitude_baro_filtered * (1.0f - ALPHA_BARO)) + (altitude_raw * ALPHA_BARO);
           }
 
@@ -550,7 +590,7 @@ int main(void)
         	  out_altitude = PID_Compute(&pid_altitude, target_altitude, altitude_estimated, DT);
           }
 
-          float final_throttle = throttle + out_altitude;
+          final_throttle = throttle + out_altitude;
 
           // Motor mixer
           Motor_Mixer(final_throttle, out_pitch, out_roll, out_yaw);

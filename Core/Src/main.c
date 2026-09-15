@@ -27,6 +27,7 @@
 #include <string.h>
 #include "sensor_fusion.h"
 #include "pid.h"
+#include "hci.h"
 #include "hci_tl.h"
 #include "bluenrg1_gatt_aci.h"
 #include "bluenrg1_gap_aci.h"
@@ -138,6 +139,9 @@ static void MX_SPI2_Init(void);
 static void MX_TIM10_Init(void);
 /* USER CODE BEGIN PFP */
 
+void Init_Drone_BLE_Service(void);
+void BLE_Setup(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -180,7 +184,6 @@ void BLE_Setup(void) {
 
 // Inizializza servizio e caratteristica GATT
 void Init_Drone_BLE_Service(void) {
-    tBleStatus ret;
 
     // UUID a 128 bit del servizio: 669a0c20-0008-417c-a496-d4bd8253d865
     Service_UUID_t service_uuid;

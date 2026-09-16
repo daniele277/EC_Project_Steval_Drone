@@ -148,11 +148,18 @@ void BLE_Setup(void);
 /* USER CODE BEGIN 0 */
 
 void BLE_Setup(void) {
+	HAL_GPIO_WritePin(BLE_CS_GPIO_Port, BLE_CS_Pin, GPIO_PIN_SET);
+
+	// Disabilita temporaneamente l'interrupt EXTI4 per evitare blocchi
+	HAL_NVIC_DisableIRQ(EXTI4_IRQn);
     // Il chip BlueNRG necessita di un impulso di reset all'avvio sul pin BLE_RSTN
     HAL_GPIO_WritePin(BLE_RSTN_GPIO_Port, BLE_RSTN_Pin, GPIO_PIN_RESET);
-    HAL_Delay(5);
+    HAL_Delay(10);
     HAL_GPIO_WritePin(BLE_RSTN_GPIO_Port, BLE_RSTN_Pin, GPIO_PIN_SET);
-    HAL_Delay(5);
+    HAL_Delay(20);
+
+    // Pulisce qualsiasi interrupt rimasto pendente sul fronte di salita
+    __HAL_GPIO_EXTI_CLEAR_IT(BLE_IRQ_Pin);
 
     // Inizializzazione del livello di trasporto (SPI)
     hci_init(NULL, NULL);
@@ -180,6 +187,10 @@ void BLE_Setup(void) {
     // Intervallo di advertising tra 160ms (0x0100 * 0.625ms) e 320ms (0x0200 * 0.625ms)
     aci_gap_set_discoverable(ADV_IND, 0x0100, 0x0200, PUBLIC_ADDR, NO_WHITE_LIST_USE,
                              0, NULL, 0, NULL, 0, 0);
+
+    // Riabilita l'interrupt
+    __HAL_GPIO_EXTI_CLEAR_IT(BLE_IRQ_Pin);
+    HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 }
 
 // Inizializza servizio e caratteristica GATT
@@ -975,7 +986,7 @@ static void MX_TIM10_Init(void)
   htim10.Instance = TIM10;
   htim10.Init.Prescaler = 8076;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 99;
+  htim10.Init.Period = 24;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim10) != HAL_OK)

@@ -80,6 +80,8 @@ uint8_t baro_updated;
 uint8_t tx_buffer_DMA[13];
 uint8_t rx_buffer_DMA[13];
 uint8_t raw_pressure_buffer[3];
+int c = 0;
+uint8_t pin_raw;
 
 // Vriabili di controllo e target
 float target_pitch = 0.0f;
@@ -183,7 +185,7 @@ void BLE_Setup(void) {
                  &gap_service_handle, &gap_dev_name_char_handle, &gap_appearance_char_handle);
 
     // Impostazione del nome del dispositivo "DRONE"
-    uint8_t device_name[] = {'D', 'R', 'O', 'N', 'E'};
+    uint8_t device_name[] = {0x09, 'D', 'R', 'O', 'N', 'E'};
     aci_gatt_update_char_value(gap_service_handle, gap_dev_name_char_handle, 0, sizeof(device_name), device_name);
 
     // Crea servizio e caratteristica
@@ -192,7 +194,7 @@ void BLE_Setup(void) {
     // Avvia l'Advertising, rendendo visibile il drone
     // Intervallo di advertising tra 160ms (0x0100 * 0.625ms) e 320ms (0x0200 * 0.625ms)
     aci_gap_set_discoverable(ADV_IND, 0x0100, 0x0200, PUBLIC_ADDR, NO_WHITE_LIST_USE,
-                             0, NULL, 0, NULL, 0, 0);
+                             sizeof(device_name), device_name, 0, NULL, 0, 0);
 }
 
 // Inizializza servizio e caratteristica GATT
@@ -563,10 +565,12 @@ int main(void)
   // TBD: La lettura dalla IMU sarà fatta in DMA
   while (1)
   {
-	  if(ble_event_pending == 1) {
+	  pin_raw = HAL_GPIO_ReadPin(BLE_IRQ_GPIO_Port, BLE_IRQ_Pin);
+	  if(ble_event_pending == 1 || pin_raw == GPIO_PIN_SET) {
 		  ble_event_pending = 0;
 		  // Funzione BlueNRG per processare gli eventi
 		  hci_user_evt_proc();
+		  c++;
 	  }
 
 	  if(data_ready == 1) {

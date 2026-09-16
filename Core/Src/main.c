@@ -148,6 +148,8 @@ void BLE_Setup(void);
 /* USER CODE BEGIN 0 */
 
 void BLE_Setup(void) {
+
+	/*
 	HAL_GPIO_WritePin(BLE_CS_GPIO_Port, BLE_CS_Pin, GPIO_PIN_SET);
 
 	// Disabilita temporaneamente l'interrupt EXTI4 per evitare blocchi
@@ -160,6 +162,10 @@ void BLE_Setup(void) {
 
     // Pulisce qualsiasi interrupt rimasto pendente sul fronte di salita
     __HAL_GPIO_EXTI_CLEAR_IT(BLE_IRQ_Pin);
+
+    // Riabilita l'interrupt
+    HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+	*/
 
     // Inizializzazione del livello di trasporto (SPI)
     hci_init(NULL, NULL);
@@ -187,10 +193,6 @@ void BLE_Setup(void) {
     // Intervallo di advertising tra 160ms (0x0100 * 0.625ms) e 320ms (0x0200 * 0.625ms)
     aci_gap_set_discoverable(ADV_IND, 0x0100, 0x0200, PUBLIC_ADDR, NO_WHITE_LIST_USE,
                              0, NULL, 0, NULL, 0, 0);
-
-    // Riabilita l'interrupt
-    __HAL_GPIO_EXTI_CLEAR_IT(BLE_IRQ_Pin);
-    HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 }
 
 // Inizializza servizio e caratteristica GATT
@@ -524,6 +526,7 @@ int main(void)
   Calibrate_Sensors();
 
   //Test_Motors();
+
 
   // Avvio della generazione del PWM sui 4 canali del Timer 4
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);

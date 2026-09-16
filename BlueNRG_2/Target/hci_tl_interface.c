@@ -122,10 +122,20 @@ int32_t HCI_TL_SPI_Reset(void)
   // Deselect CS PIN for BlueNRG to avoid spurious commands
   HAL_GPIO_WritePin(HCI_TL_SPI_CS_PORT, HCI_TL_SPI_CS_PIN, GPIO_PIN_SET);
 
+  // Disabilita temporaneamente l'interrupt EXTI4 per evitare blocchi
+  HAL_NVIC_DisableIRQ(EXTI4_IRQn);
+
   HAL_GPIO_WritePin(HCI_TL_RST_PORT, HCI_TL_RST_PIN, GPIO_PIN_RESET);
   HAL_Delay(5);
   HAL_GPIO_WritePin(HCI_TL_RST_PORT, HCI_TL_RST_PIN, GPIO_PIN_SET);
   HAL_Delay(5);
+
+  // Pulisce qualsiasi interrupt rimasto pendente sul fronte di salita
+  __HAL_GPIO_EXTI_CLEAR_IT(HCI_TL_SPI_IRQ_PIN);
+
+  // Riabilita l'interrupt
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
   return 0;
 }
 

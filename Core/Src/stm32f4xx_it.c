@@ -217,6 +217,8 @@ void EXTI4_IRQHandler(void)
   HAL_EXTI_IRQHandler(&H_EXTI_4);
   /* USER CODE BEGIN EXTI4_IRQn 1 */
 
+  hci_tl_lowlevel_isr();
+
   /* USER CODE END EXTI4_IRQn 1 */
 }
 

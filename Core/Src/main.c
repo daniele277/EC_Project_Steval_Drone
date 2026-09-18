@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "app_bluenrg_2.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -29,6 +30,7 @@
 #include "pid.h"
 #include "hci.h"
 #include "hci_tl.h"
+#include "hci_tl_interface.h"
 #include "bluenrg1_gatt_aci.h"
 #include "bluenrg1_gap_aci.h"
 #include "bluenrg1_hal_aci.h"
@@ -80,7 +82,6 @@ uint8_t baro_updated;
 uint8_t tx_buffer_DMA[13];
 uint8_t rx_buffer_DMA[13];
 uint8_t raw_pressure_buffer[3];
-int c = 0;
 uint8_t pin_raw;
 
 // Vriabili di controllo e target
@@ -107,9 +108,6 @@ volatile uint8_t data_ready = 0;
 int32_t gyro_offset_x = 0, gyro_offset_y = 0, gyro_offset_z = 0;
 int32_t acc_offset_x = 0,  acc_offset_y = 0,  acc_offset_z = 0;
 float pressure_zero = 0.0f;
-
-// Flag evento BLE
-volatile uint8_t ble_event_pending = 0;
 
 // Handle servizio e caratteristica
 uint16_t drone_service_handle;
@@ -142,60 +140,11 @@ static void MX_TIM10_Init(void);
 /* USER CODE BEGIN PFP */
 
 void Init_Drone_BLE_Service(void);
-void BLE_Setup(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-void BLE_Setup(void) {
-
-	/*
-	HAL_GPIO_WritePin(BLE_CS_GPIO_Port, BLE_CS_Pin, GPIO_PIN_SET);
-
-	// Disabilita temporaneamente l'interrupt EXTI4 per evitare blocchi
-	HAL_NVIC_DisableIRQ(EXTI4_IRQn);
-    // Il chip BlueNRG necessita di un impulso di reset all'avvio sul pin BLE_RSTN
-    HAL_GPIO_WritePin(BLE_RSTN_GPIO_Port, BLE_RSTN_Pin, GPIO_PIN_RESET);
-    HAL_Delay(10);
-    HAL_GPIO_WritePin(BLE_RSTN_GPIO_Port, BLE_RSTN_Pin, GPIO_PIN_SET);
-    HAL_Delay(20);
-
-    // Pulisce qualsiasi interrupt rimasto pendente sul fronte di salita
-    __HAL_GPIO_EXTI_CLEAR_IT(BLE_IRQ_Pin);
-
-    // Riabilita l'interrupt
-    HAL_NVIC_EnableIRQ(EXTI4_IRQn);
-	*/
-
-    // Inizializzazione del livello di trasporto (SPI)
-    hci_init(NULL, NULL);
-
-    // Impostazione del MAC Address (in Little Endian!)
-    uint8_t bdaddr[] = {0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12};
-    aci_hal_write_config_data(CONFIG_DATA_PUBADDR_OFFSET, CONFIG_DATA_PUBADDR_LEN, bdaddr);
-
-    // Inizializzazione GATT e GAP
-    uint16_t gap_service_handle, gap_dev_name_char_handle, gap_appearance_char_handle;
-    aci_gatt_init();
-
-    // Configura il drone come "Periferica"
-    aci_gap_init(GAP_PERIPHERAL_ROLE, 0, 0x07,
-                 &gap_service_handle, &gap_dev_name_char_handle, &gap_appearance_char_handle);
-
-    // Impostazione del nome del dispositivo "DRONE"
-    uint8_t device_name[] = {0x09, 'D', 'R', 'O', 'N', 'E'};
-    aci_gatt_update_char_value(gap_service_handle, gap_dev_name_char_handle, 0, sizeof(device_name), device_name);
-
-    // Crea servizio e caratteristica
-    Init_Drone_BLE_Service();
-
-    // Avvia l'Advertising, rendendo visibile il drone
-    // Intervallo di advertising tra 160ms (0x0100 * 0.625ms) e 320ms (0x0200 * 0.625ms)
-    aci_gap_set_discoverable(ADV_IND, 0x0100, 0x0200, PUBLIC_ADDR, NO_WHITE_LIST_USE,
-                             sizeof(device_name), device_name, 0, NULL, 0, 0);
-}
 
 // Inizializza servizio e caratteristica GATT
 void Init_Drone_BLE_Service(void) {
@@ -255,15 +204,6 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
         data_ready = 1;
 	}
 }
-
-// Callback ricezione evento BLE: si limita solo ad alzare il flag
-// N.B: NON si legge qui SPI!
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-    if (GPIO_Pin == BLE_IRQ_Pin) {
-        ble_event_pending = 1;
-    }
-}
-
 
 HAL_StatusTypeDef readSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_addr,  uint8_t *pData, uint16_t size) {
 
@@ -490,13 +430,11 @@ int main(void)
   MX_USART1_UART_Init();
   MX_TIM4_Init();
   MX_TIM9_Init();
-  MX_SPI1_Init(&hspi1);
   MX_SPI2_Init();
   MX_TIM10_Init();
+  MX_BlueNRG_2_Init();
+  Init_Drone_BLE_Service();
   /* USER CODE BEGIN 2 */
-
-  // BLE setup
-  BLE_Setup();
 
   // Disabilita inizialmente i sensori assicurandoti che i pin CS siano HIGH
   HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_SET);
@@ -562,16 +500,10 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  // TBD: La lettura dalla IMU sarà fatta in DMA
   while (1)
   {
-	  pin_raw = HAL_GPIO_ReadPin(BLE_IRQ_GPIO_Port, BLE_IRQ_Pin);
-	  if(ble_event_pending == 1 || pin_raw == GPIO_PIN_SET) {
-		  ble_event_pending = 0;
-		  // Funzione BlueNRG per processare gli eventi
-		  hci_user_evt_proc();
-		  c++;
-	  }
+	  // Funzione BlueNRG per processare gli eventi
+	  //hci_user_evt_proc();
 
 	  if(data_ready == 1) {
 		  // Stima degli angoli
@@ -621,6 +553,7 @@ int main(void)
 	  }
     /* USER CODE END WHILE */
 
+  MX_BlueNRG_2_Process();
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -886,9 +819,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 2;
+  htim4.Init.Prescaler = 84;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 55999;
+  htim4.Init.Period = 1999;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -993,7 +926,7 @@ static void MX_TIM10_Init(void)
   htim10.Instance = TIM10;
   htim10.Init.Prescaler = 8076;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 24;
+  htim10.Init.Period = 99;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
@@ -1153,20 +1086,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-// Funzione che intercetta l'evento di modifica dell'attributo
-void aci_gatt_attribute_modified_event(uint16_t Connection_Handle,
-                                       uint16_t Attr_Handle,
-                                       uint16_t Offset,
-                                       uint16_t Attr_Data_Length,
-                                       uint8_t Attr_Data[]) {
-
-    if (Attr_Handle == (rx_setpoints_handle + 1)) {
-        if (Attr_Data_Length == sizeof(SetpointData_t)) {
-            memcpy(&setpoint, Attr_Data, sizeof(SetpointData_t));
-        }
-    }
-}
 
 /* USER CODE END 4 */
 

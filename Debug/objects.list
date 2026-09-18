@@ -1,3 +1,8 @@
+"./BlueNRG_2/App/OTA.o"
+"./BlueNRG_2/App/app_bluenrg_2.o"
+"./BlueNRG_2/App/gatt_db.o"
+"./BlueNRG_2/App/sensor.o"
+"./BlueNRG_2/App/target_platform.o"
 "./BlueNRG_2/Target/hci_tl_interface.o"
 "./Core/Src/custom_bus.o"
 "./Core/Src/lps22hh.o"

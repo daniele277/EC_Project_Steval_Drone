@@ -17,6 +17,7 @@ RM := rm -rf
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
 -include BlueNRG_2/Target/subdir.mk
+-include BlueNRG_2/App/subdir.mk
 -include objects.mk
 
 ifneq ($(MAKECMDGOALS),clean)

@@ -35,6 +35,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h \
  ../BlueNRG_2/Target/hci_tl_interface.h ../Core/Inc/custom_bus.h \
  ../Core/Inc/custom_conf.h ../Core/Inc/custom_errno.h \
+ ../BlueNRG_2/App/app_bluenrg_2.h ../Core/Inc/custom.h ../Core/Inc/main.h \
  ../Core/Inc/lsm6dsr.h ../Core/Inc/lsm6dsr_reg.h ../Core/Inc/lps22hh.h \
  ../Core/Inc/lps22hh_reg.h ../Core/Inc/sensor_fusion.h \
  ../Core/Inc/lsm6dsr.h ../Core/Inc/pid.h \
@@ -99,6 +100,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Inc/custom_bus.h:
 ../Core/Inc/custom_conf.h:
 ../Core/Inc/custom_errno.h:
+../BlueNRG_2/App/app_bluenrg_2.h:
+../Core/Inc/custom.h:
+../Core/Inc/main.h:
 ../Core/Inc/lsm6dsr.h:
 ../Core/Inc/lsm6dsr_reg.h:
 ../Core/Inc/lps22hh.h:

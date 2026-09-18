@@ -23,6 +23,7 @@
 
 /* Defines ------------------------------------------------------------------*/
 /* STMicroelectronics.X-CUBE-BLE2.3.3.0 */
+#define SENSOR_DEMO_BS
 #define HCI_TL
 #define HCI_TL_INTERFACE
 

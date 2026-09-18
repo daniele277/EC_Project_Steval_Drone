@@ -39,37 +39,28 @@ float PID_Compute(PID *pid, float setpoint, float measured, float dt) {
 	pid->integral += error * dt;
 	i_out = pid->Ki * pid->integral;
 
-	// Saturazione dell'integrale (Anti-Windup)
-	if (i_out > pid->int_max) {
-		i_out = pid->int_max;
-		if (pid->Ki != 0.0f) {
-			pid->integral = i_out / pid->Ki;
-		}
-	} else if (i_out < pid->int_min) {
-		i_out = pid->int_min;
-		if (pid->Ki != 0.0f) {
-			pid->integral = i_out / pid->Ki;
-		}
-	}
-
 	// Componente derivativa
 	// N.B.: Per il rischio di derivative kick potrebbe essere necessario usare direttamente il valore
 	// di velocità angolare misurata dal giroscopio es. Kd * omega
 	derivative = (error - pid->prev_error) / dt;
 	d_out = pid->Kd * derivative;
 
-	// Azione di controllo totale
+	// Azione di controllo
 	tot = p_out + i_out + d_out;
 
-	// Saturazione dell'uscita totale (Limita l'azione sui motori)
+	// Anti Wind-Up
 	if (tot > pid->out_max) {
-		tot = pid->out_max;
+	    tot = pid->out_max;
+	    if (error > 0.0f) {
+	        pid->integral -= error * dt;
+	    }
 	} else if (tot < pid->out_min) {
-		tot = pid->out_min;
+	    tot = pid->out_min;
+	    if (error < 0.0f) {
+	        pid->integral -= error * dt;
+	    }
 	}
 
-	// Salvataggio errore
 	pid->prev_error = error;
-
 	return tot;
 }

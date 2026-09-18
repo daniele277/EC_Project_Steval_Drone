@@ -440,7 +440,6 @@ void Motor_Mixer(float throttle, float pid_pitch, float pid_roll, float pid_yaw)
     float m4 = throttle + pid_pitch + pid_roll - pid_yaw; // posteriore sx
 
     // Definizione dei limiti PWM
-    // Questo è da vedere, perché dipende dall'ARR
     float pwm_min = 2800.0f;  // Minimo per evitare lo spegnimento in volo (5% del valore massimo)
     float pwm_max = 55999.0f;  // Duty cycle massimo al 100%
 
@@ -561,10 +560,10 @@ int main(void)
   // Inizializzazione dei PID
   PID pid_pitch, pid_roll, pid_yaw;
   PID pid_altitude;
-  PID_Init(&pid_pitch, 100.0f, 10.0f, 0.0f, 400.0f, -400.0f);
-  PID_Init(&pid_roll,  100.0f, 10.0f, 0.0f, 400.0f, -400.0f);
-  PID_Init(&pid_yaw,   150.0f, 0.0f,  0.0f, 400.0f, -400.0f);
-  PID_Init(&pid_altitude, 50.0f, 5.0f, 20.0f, 150.0f, -150.0f);
+  PID_Init(&pid_pitch, 100.0f, 10.0f, 0.0f, 9800.0f, -9800.0f);
+  PID_Init(&pid_roll,  100.0f, 10.0f, 0.0f, 9800.0f, -9800.0f);
+  PID_Init(&pid_yaw,   150.0f, 0.0f,  0.0f, 4200.0f, -4200.0f);
+  PID_Init(&pid_altitude, 50.0f, 5.0f, 20.0f, 4200.0f, -4200.0f);
 
   /* USER CODE END 2 */
 
@@ -609,11 +608,13 @@ int main(void)
 
           Altitude_Fusion_Update(&accel_data, pressure_data, pressure_zero, new_baro_sample);
 
+          /*
           if(throttle > 10) {
         	  out_altitude = PID_Compute(&pid_altitude, target_altitude, altitude_estimated, DT);
           }
 
           final_throttle = throttle + out_altitude;
+          */
 
           // Motor mixer
           Motor_Mixer(final_throttle, out_pitch, out_roll, out_yaw);
@@ -994,7 +995,7 @@ static void MX_TIM10_Init(void)
   htim10.Instance = TIM10;
   htim10.Init.Prescaler = 8076;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 99;
+  htim10.Init.Period = 24;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim10) != HAL_OK)

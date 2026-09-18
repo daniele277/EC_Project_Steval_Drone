@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "app_bluenrg_2.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -432,8 +431,6 @@ int main(void)
   MX_TIM9_Init();
   MX_SPI2_Init();
   MX_TIM10_Init();
-  MX_BlueNRG_2_Init();
-  Init_Drone_BLE_Service();
   /* USER CODE BEGIN 2 */
 
   // Disabilita inizialmente i sensori assicurandoti che i pin CS siano HIGH
@@ -553,7 +550,6 @@ int main(void)
 	  }
     /* USER CODE END WHILE */
 
-  MX_BlueNRG_2_Process();
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

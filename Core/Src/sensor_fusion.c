@@ -57,6 +57,7 @@ void Altitude_Fusion_Update(LSM6DSR_AxesRaw_t *accel_data, float pressure_data, 
 
 	// Filtro complementare tra barometro e accelerometro
 	altitude_estimated = (altitude_estimated * ALPHA_COMP) + (altitude_baro_filtered * (1.0f - ALPHA_COMP));
+
 }
 
 void Altitude_Fusion_Reset(void) {

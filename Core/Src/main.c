@@ -566,8 +566,6 @@ int main(void)
   PID_Init(&pid_yaw,   150.0f, 0.0f,  0.0f, 400.0f, -400.0f);
   PID_Init(&pid_altitude, 50.0f, 5.0f, 20.0f, 150.0f, -150.0f);
 
-  uint8_t baro_status;
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -598,19 +596,18 @@ int main(void)
         	  PID_Reset(&pid_yaw);
           }
 
-          baro_status = 0;
+          uint8_t baro_status = 0;
           readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_STATUS, &baro_status, 1);
 
-          if(baro_status & 0x01) {
-        	  readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, raw_pressure_buffer, 3);
-        	  press_raw = (int32_t) ((raw_pressure_buffer[2] << 16) | (raw_pressure_buffer[1] << 8) | raw_pressure_buffer[0]);
-        	  pressure_data = (float) press_raw / 4096.0f;
-        	  altitude_raw = 44330.0f * (1.0f - powf(pressure_data / pressure_zero, 0.190295f));
-        	  altitude_baro_filtered = (altitude_baro_filtered * (1.0f - ALPHA_BARO)) + (altitude_raw * ALPHA_BARO);
+          uint8_t new_baro_sample = 0;
+          if (baro_status & 0x01) {
+              readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_PRESS_OUT_XL, raw_pressure_buffer, 3);
+              press_raw = (int32_t)((raw_pressure_buffer[2] << 16) | (raw_pressure_buffer[1] << 8) | raw_pressure_buffer[0]);
+              pressure_data = (float) press_raw / 4096.0f;
+              new_baro_sample = 1;
           }
 
-          Altitude_Fusion_Update(&accel_data, pressure_data, pressure_zero, baro_updated);
-          baro_updated = 0; // reset del flag
+          Altitude_Fusion_Update(&accel_data, pressure_data, pressure_zero, new_baro_sample);
 
           if(throttle > 10) {
         	  out_altitude = PID_Compute(&pid_altitude, target_altitude, altitude_estimated, DT);

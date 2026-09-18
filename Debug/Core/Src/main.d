@@ -33,34 +33,32 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h \
- ../BlueNRG_2/Target/hci_tl_interface.h ../Core/Inc/custom_bus.h \
+ ../BlueNRG-MS/Target/hci_tl_interface.h ../Core/Inc/custom_bus.h \
  ../Core/Inc/custom_conf.h ../Core/Inc/custom_errno.h \
- ../BlueNRG_2/App/app_bluenrg_2.h ../Core/Inc/custom.h ../Core/Inc/main.h \
  ../Core/Inc/lsm6dsr.h ../Core/Inc/lsm6dsr_reg.h ../Core/Inc/lps22hh.h \
  ../Core/Inc/lps22hh_reg.h ../Core/Inc/sensor_fusion.h \
  ../Core/Inc/lsm6dsr.h ../Core/Inc/pid.h \
- ../Middlewares/ST/BlueNRG-2/includes/hci.h \
- ../Middlewares/ST/BlueNRG-2/includes/bluenrg1_types.h \
- ../Middlewares/ST/BlueNRG-2/includes/compiler.h \
- ../Middlewares/ST/BlueNRG-2/includes/ble_const.h \
- ../Middlewares/ST/BlueNRG-2/includes/hci_const.h \
- ../Middlewares/ST/BlueNRG-2/includes/link_layer.h \
- ../Middlewares/ST/BlueNRG-2/includes/ble_types.h \
- ../Middlewares/ST/BlueNRG-2/includes/ble_status.h \
- ../Middlewares/ST/BlueNRG-2/hci/hci_tl_patterns/Basic/hci_tl.h \
- ../Middlewares/ST/BlueNRG-2/includes/ble_types.h \
- ../Middlewares/ST/BlueNRG-2/utils/ble_list.h \
- ../BlueNRG_2/Target/bluenrg_conf.h \
- ../Middlewares/ST/BlueNRG-2/includes/ble_status.h \
- ../Middlewares/ST/BlueNRG-2/includes/bluenrg1_hal.h \
- ../Middlewares/ST/BlueNRG-2/includes/bluenrg1_gap.h \
- ../Middlewares/ST/BlueNRG-2/includes/link_layer.h \
- ../Middlewares/ST/BlueNRG-2/includes/bluenrg1_gatt_server.h \
- ../Middlewares/ST/BlueNRG-2/includes/sm.h \
- ../Middlewares/ST/BlueNRG-2/includes/bluenrg1_gatt_aci.h \
- ../Middlewares/ST/BlueNRG-2/includes/bluenrg1_gap_aci.h \
- ../Middlewares/ST/BlueNRG-2/includes/bluenrg1_hal_aci.h \
- ../Middlewares/ST/BlueNRG-2/includes/bluenrg1_events.h
+ ../Middlewares/ST/BlueNRG-MS/includes/hci.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/bluenrg_types.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/hci_le.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/link_layer.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/bluenrg_def.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/hci_const.h \
+ ../Middlewares/ST/BlueNRG-MS/hci/hci_tl_patterns/Basic/hci_tl.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/bluenrg_types.h \
+ ../Middlewares/ST/BlueNRG-MS/utils/ble_list.h \
+ ../BlueNRG-MS/Target/bluenrg_conf.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/bluenrg_gap.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/link_layer.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/bluenrg_gap_aci.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/bluenrg_gatt_aci.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/bluenrg_gatt_server.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/compiler.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/bluenrg_hal_aci.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/bluenrg_gatt_server.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/bluenrg_aci_const.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/hci_const.h \
+ ../Middlewares/ST/BlueNRG-MS/includes/bluenrg_utils.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 ../Core/Inc/stm32f4xx_hal_conf.h:
@@ -96,13 +94,10 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h:
-../BlueNRG_2/Target/hci_tl_interface.h:
+../BlueNRG-MS/Target/hci_tl_interface.h:
 ../Core/Inc/custom_bus.h:
 ../Core/Inc/custom_conf.h:
 ../Core/Inc/custom_errno.h:
-../BlueNRG_2/App/app_bluenrg_2.h:
-../Core/Inc/custom.h:
-../Core/Inc/main.h:
 ../Core/Inc/lsm6dsr.h:
 ../Core/Inc/lsm6dsr_reg.h:
 ../Core/Inc/lps22hh.h:
@@ -110,25 +105,24 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Inc/sensor_fusion.h:
 ../Core/Inc/lsm6dsr.h:
 ../Core/Inc/pid.h:
-../Middlewares/ST/BlueNRG-2/includes/hci.h:
-../Middlewares/ST/BlueNRG-2/includes/bluenrg1_types.h:
-../Middlewares/ST/BlueNRG-2/includes/compiler.h:
-../Middlewares/ST/BlueNRG-2/includes/ble_const.h:
-../Middlewares/ST/BlueNRG-2/includes/hci_const.h:
-../Middlewares/ST/BlueNRG-2/includes/link_layer.h:
-../Middlewares/ST/BlueNRG-2/includes/ble_types.h:
-../Middlewares/ST/BlueNRG-2/includes/ble_status.h:
-../Middlewares/ST/BlueNRG-2/hci/hci_tl_patterns/Basic/hci_tl.h:
-../Middlewares/ST/BlueNRG-2/includes/ble_types.h:
-../Middlewares/ST/BlueNRG-2/utils/ble_list.h:
-../BlueNRG_2/Target/bluenrg_conf.h:
-../Middlewares/ST/BlueNRG-2/includes/ble_status.h:
-../Middlewares/ST/BlueNRG-2/includes/bluenrg1_hal.h:
-../Middlewares/ST/BlueNRG-2/includes/bluenrg1_gap.h:
-../Middlewares/ST/BlueNRG-2/includes/link_layer.h:
-../Middlewares/ST/BlueNRG-2/includes/bluenrg1_gatt_server.h:
-../Middlewares/ST/BlueNRG-2/includes/sm.h:
-../Middlewares/ST/BlueNRG-2/includes/bluenrg1_gatt_aci.h:
-../Middlewares/ST/BlueNRG-2/includes/bluenrg1_gap_aci.h:
-../Middlewares/ST/BlueNRG-2/includes/bluenrg1_hal_aci.h:
-../Middlewares/ST/BlueNRG-2/includes/bluenrg1_events.h:
+../Middlewares/ST/BlueNRG-MS/includes/hci.h:
+../Middlewares/ST/BlueNRG-MS/includes/bluenrg_types.h:
+../Middlewares/ST/BlueNRG-MS/includes/hci_le.h:
+../Middlewares/ST/BlueNRG-MS/includes/link_layer.h:
+../Middlewares/ST/BlueNRG-MS/includes/bluenrg_def.h:
+../Middlewares/ST/BlueNRG-MS/includes/hci_const.h:
+../Middlewares/ST/BlueNRG-MS/hci/hci_tl_patterns/Basic/hci_tl.h:
+../Middlewares/ST/BlueNRG-MS/includes/bluenrg_types.h:
+../Middlewares/ST/BlueNRG-MS/utils/ble_list.h:
+../BlueNRG-MS/Target/bluenrg_conf.h:
+../Middlewares/ST/BlueNRG-MS/includes/bluenrg_gap.h:
+../Middlewares/ST/BlueNRG-MS/includes/link_layer.h:
+../Middlewares/ST/BlueNRG-MS/includes/bluenrg_gap_aci.h:
+../Middlewares/ST/BlueNRG-MS/includes/bluenrg_gatt_aci.h:
+../Middlewares/ST/BlueNRG-MS/includes/bluenrg_gatt_server.h:
+../Middlewares/ST/BlueNRG-MS/includes/compiler.h:
+../Middlewares/ST/BlueNRG-MS/includes/bluenrg_hal_aci.h:
+../Middlewares/ST/BlueNRG-MS/includes/bluenrg_gatt_server.h:
+../Middlewares/ST/BlueNRG-MS/includes/bluenrg_aci_const.h:
+../Middlewares/ST/BlueNRG-MS/includes/hci_const.h:
+../Middlewares/ST/BlueNRG-MS/includes/bluenrg_utils.h:

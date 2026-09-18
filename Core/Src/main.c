@@ -28,12 +28,17 @@
 #include "sensor_fusion.h"
 #include "pid.h"
 #include "hci.h"
+#include "hci_le.h"
+#include "hci_const.h"
 #include "hci_tl.h"
 #include "hci_tl_interface.h"
-#include "bluenrg1_gatt_aci.h"
-#include "bluenrg1_gap_aci.h"
-#include "bluenrg1_hal_aci.h"
-#include "bluenrg1_events.h"
+#include "bluenrg_gap.h"
+#include "bluenrg_gap_aci.h"
+#include "bluenrg_gatt_aci.h"
+#include "bluenrg_hal_aci.h"
+#include "bluenrg_gatt_server.h"
+#include "bluenrg_aci_const.h"
+#include "bluenrg_utils.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -137,41 +142,108 @@ static void MX_TIM9_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_TIM10_Init(void);
 /* USER CODE BEGIN PFP */
-
+void BLE_Setup(void);
 void Init_Drone_BLE_Service(void);
+void App_UserEvtRx(void *pData);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+void BLE_Setup(void)
+{
+  uint8_t  hwVersion = 0;
+  uint16_t fwVersion = 0;
+  tBleStatus ret;
+  tBDAddr bdaddr = {0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12};
+
+  hci_reset();
+  HAL_Delay(2000);
+
+  getBlueNRGVersion(&hwVersion, &fwVersion);
+
+  hci_reset();
+  HAL_Delay(2000);
+
+  //Reset di nuovo: aci_hal_write_config_data() deve essere
+  // il primo comando dopo il reset, altrimenti fallisce con ERR_AUTH_FAILURE
+  ret = aci_hal_write_config_data(CONFIG_DATA_PUBADDR_OFFSET, CONFIG_DATA_PUBADDR_LEN, bdaddr);
+  if (ret != BLE_STATUS_SUCCESS) { Error_Handler(); }
+
+  ret = aci_gatt_init();
+  if (ret != BLE_STATUS_SUCCESS) { Error_Handler(); }
+
+  uint16_t service_handle, dev_name_char_handle, appearance_char_handle;
+  ret = aci_gap_init_IDB05A1(GAP_PERIPHERAL_ROLE_IDB05A1, 0, 0x07, &service_handle, &dev_name_char_handle, &appearance_char_handle);
+  if (ret != BLE_STATUS_SUCCESS) { Error_Handler(); }
+
+  const char name[] = "DRONE";
+  aci_gatt_update_char_value(service_handle, dev_name_char_handle, 0, strlen(name), (uint8_t*)name);
+
+  Init_Drone_BLE_Service();
+
+  uint8_t local_name[] = {AD_TYPE_COMPLETE_LOCAL_NAME, 'D','R','O','N','E'};
+  ret = aci_gap_set_discoverable(ADV_IND, 0x0100, 0x0200, PUBLIC_ADDR, NO_WHITE_LIST_USE,
+                                 sizeof(local_name), (char*)local_name, 0, NULL, 0, 0);
+  if (ret != BLE_STATUS_SUCCESS) { Error_Handler(); }
+}
+
 // Inizializza servizio e caratteristica GATT
 void Init_Drone_BLE_Service(void) {
 
     // UUID a 128 bit del servizio: 669a0c20-0008-417c-a496-d4bd8253d865
-    Service_UUID_t service_uuid;
     uint8_t srv_uuid[16] = {0x65,0xd8,0x53,0x82,0xbd,0xd4,0x96,0xa4,0x7c,0x41,0x08,0x00,0x20,0x0c,0x9a,0x66};
 
-    // Crea il servizio e salva il suo handle in drone_service_handle
-    memcpy(service_uuid.Service_UUID_128, srv_uuid, 16);
-    aci_gatt_add_service(UUID_TYPE_128, &service_uuid, PRIMARY_SERVICE, 7, &drone_service_handle);
+    aci_gatt_add_serv(UUID_TYPE_128, srv_uuid, PRIMARY_SERVICE, 7, &drone_service_handle);
 
     // UUID a 128 bit della caratteristica: 669a0c21-0008-417c-a496-d4bd8253d865
-    Char_UUID_t char_uuid;
     uint8_t chr_uuid[16] = {0x65,0xd8,0x53,0x82,0xbd,0xd4,0x96,0xa4,0x7c,0x41,0x08,0x00,0x21,0x0c,0x9a,0x66};
 
-    // Crea la caratteristica collegata al servizio appena creato
-    memcpy(char_uuid.Char_UUID_128, chr_uuid, 16);
-    aci_gatt_add_char(drone_service_handle,	// handle del servizio
-                      UUID_TYPE_128,		// tipo di UUID
-                      &char_uuid,			// puntatore all'UUID
-                      16,					// lunghezza dati in byte
-                      CHAR_PROP_WRITE | CHAR_PROP_WRITE_WITHOUT_RESP,	// permessi di scrittura
-                      ATTR_PERMISSION_NONE,	// nessuna sicurezza
-                      GATT_NOTIFY_ATTRIBUTE_WRITE,	// interrupt quando avviene la scrittura dell'attributo
-                      16,					// dimensione chiave crittografica
-                      0,					// lunghezza fissa
-                      &rx_setpoints_handle);	// salva l'handle della caratteristica in rx_setpoint_handle
+    aci_gatt_add_char(drone_service_handle,
+                      UUID_TYPE_128,
+                      chr_uuid,
+                      16,
+                      CHAR_PROP_WRITE | CHAR_PROP_WRITE_WITHOUT_RESP,
+                      ATTR_PERMISSION_NONE,
+                      GATT_NOTIFY_ATTRIBUTE_WRITE,
+                      16,
+                      0,
+					  &rx_setpoints_handle);
+}
+
+void APP_UserEvtRx(void *pData)
+{
+  hci_uart_pckt *hci_pckt = (hci_uart_pckt*)pData;
+
+  if (hci_pckt->type != HCI_EVENT_PKT) return;
+
+  hci_event_pckt *event_pckt = (hci_event_pckt*)hci_pckt->data;
+
+  switch (event_pckt->evt) {
+
+    case EVT_DISCONN_COMPLETE:
+      // failsafe: azzera subito i motori alla disconnessione
+      memset(&setpoint, 0, sizeof(setpoint));
+      break;
+
+    case EVT_VENDOR: {
+      evt_blue_aci *blue_evt = (evt_blue_aci*)event_pckt->data;
+
+      if (blue_evt->ecode == EVT_BLUE_GATT_ATTRIBUTE_MODIFIED) {
+        evt_gatt_attr_modified_IDB05A1 *evt = (evt_gatt_attr_modified_IDB05A1*)blue_evt->data;
+
+        if (evt->attr_handle == rx_setpoints_handle + 1 &&
+            evt->data_length == sizeof(SetpointData_t)) {
+          memcpy(&setpoint, evt->att_data, sizeof(SetpointData_t));
+        }
+      }
+      break;
+    }
+
+    default:
+    break;
+  }
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
@@ -432,6 +504,9 @@ int main(void)
   MX_SPI2_Init();
   MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
+  hci_tl_lowlevel_init();
+  hci_init(APP_UserEvtRx, NULL);
+  BLE_Setup();
 
   // Disabilita inizialmente i sensori assicurandoti che i pin CS siano HIGH
   HAL_GPIO_WritePin(LSM6DSR_CS_GPIO_Port, LSM6DSR_CS_Pin, GPIO_PIN_SET);
@@ -500,7 +575,7 @@ int main(void)
   while (1)
   {
 	  // Funzione BlueNRG per processare gli eventi
-	  //hci_user_evt_proc();
+	  hci_user_evt_proc();
 
 	  if(data_ready == 1) {
 		  // Stima degli angoli

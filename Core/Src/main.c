@@ -86,7 +86,6 @@ uint8_t baro_updated;
 uint8_t tx_buffer_DMA[13];
 uint8_t rx_buffer_DMA[13];
 uint8_t raw_pressure_buffer[3];
-uint8_t pin_raw;
 
 // Vriabili di controllo e target
 float target_pitch = 0.0f;
@@ -94,6 +93,15 @@ float target_roll = 0.0f;
 float target_yaw = 0.0f;
 float target_altitude = 0.0f;
 float throttle = 0.0f;
+
+float m1 = 0.0f;
+float m2 = 0.0f;
+float m3 = 0.0f;
+float m4 = 0.0f;
+
+// PID
+PID pid_pitch, pid_roll, pid_yaw;
+PID pid_altitude;
 
 // Variabili per i PID
 float out_pitch = 0.0f;
@@ -113,9 +121,17 @@ int32_t gyro_offset_x = 0, gyro_offset_y = 0, gyro_offset_z = 0;
 int32_t acc_offset_x = 0,  acc_offset_y = 0,  acc_offset_z = 0;
 float pressure_zero = 0.0f;
 
-// Handle servizio e caratteristica
+// Handle servizio drone
 uint16_t drone_service_handle;
+
+// Handle caratteristica setpoint
 uint16_t rx_setpoints_handle;
+
+// Handle caratteristica PID
+uint16_t rx_pid_handle;
+
+// Handle caratteristica telemetria
+uint16_t tx_telemetry_handle;
 
 // Struct setpoint
 typedef struct {
@@ -126,6 +142,26 @@ typedef struct {
 } SetpointData_t;
 
 SetpointData_t setpoint;
+
+// Struct taratura PID
+typedef struct {
+	uint8_t axis;
+	float kp;
+	float ki;
+	float kd;
+} PIDTuningData_t;
+
+PIDTuningData_t pid_tuning;
+
+// Struct dati di telemetria da inviare per debug
+typedef struct {
+	float pitch;
+	float roll;
+	float yaw;
+	float altitude;
+} TelemetryData_t;
+
+TelemetryData_t telemetry_data;
 
 /* USER CODE END PV */
 
@@ -156,7 +192,7 @@ void BLE_Setup(void)
   uint8_t  hwVersion = 0;
   uint16_t fwVersion = 0;
   tBleStatus ret;
-  tBDAddr bdaddr = {0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12};
+  tBDAddr bdaddr = {0xBC, 0x9A, 0x78, 0x56, 0x34, 0x13};
 
   hci_reset();
   HAL_Delay(2000);
@@ -195,9 +231,9 @@ void Init_Drone_BLE_Service(void) {
     // UUID a 128 bit del servizio: 669a0c20-0008-417c-a496-d4bd8253d865
     uint8_t srv_uuid[16] = {0x65,0xd8,0x53,0x82,0xbd,0xd4,0x96,0xa4,0x7c,0x41,0x08,0x00,0x20,0x0c,0x9a,0x66};
 
-    aci_gatt_add_serv(UUID_TYPE_128, srv_uuid, PRIMARY_SERVICE, 7, &drone_service_handle);
+    aci_gatt_add_serv(UUID_TYPE_128, srv_uuid, PRIMARY_SERVICE, 20, &drone_service_handle);
 
-    // UUID a 128 bit della caratteristica: 669a0c21-0008-417c-a496-d4bd8253d865
+    // UUID a 128 bit della caratteristica setpoint: 669a0c21-0008-417c-a496-d4bd8253d865
     uint8_t chr_uuid[16] = {0x65,0xd8,0x53,0x82,0xbd,0xd4,0x96,0xa4,0x7c,0x41,0x08,0x00,0x21,0x0c,0x9a,0x66};
 
     aci_gatt_add_char(drone_service_handle,
@@ -210,6 +246,34 @@ void Init_Drone_BLE_Service(void) {
                       16,
                       0,
 					  &rx_setpoints_handle);
+
+    // UUID a 128 bit della caratteristica PID: 669a0c22-0008-417c-a496-d4bd8253d865
+    uint8_t chr_pid_uuid[16] = {0x65,0xd8,0x53,0x82,0xbd,0xd4,0x96,0xa4,0x7c,0x41,0x08,0x00,0x22,0x0c,0x9a,0x66};
+
+    aci_gatt_add_char(drone_service_handle,
+    		UUID_TYPE_128,
+			chr_pid_uuid,
+			sizeof(PIDTuningData_t),
+			CHAR_PROP_WRITE | CHAR_PROP_WRITE_WITHOUT_RESP,
+			ATTR_PERMISSION_NONE,
+			GATT_NOTIFY_ATTRIBUTE_WRITE,
+			16,
+			0,
+			&rx_pid_handle);
+
+    // UUID a 128 bit della caratteristica di telemetria: 669a0c23-0008-417c-a496-d4bd8253d865
+    uint8_t chr_telemetry_uuid[16] = {0x65,0xd8,0x53,0x82,0xbd,0xd4,0x96,0xa4,0x7c,0x41,0x08,0x00,0x23,0x0c,0x9a,0x66};
+
+    aci_gatt_add_char(drone_service_handle,
+                     UUID_TYPE_128,
+                     chr_telemetry_uuid,
+                     sizeof(TelemetryData_t),
+                     CHAR_PROP_READ | CHAR_PROP_NOTIFY, // Lettura e Notifica abilitate
+                     ATTR_PERMISSION_NONE,
+                     GATT_NOTIFY_READ_REQ_AND_WAIT_FOR_APPL_RESP,
+                     16,
+                     0,
+                     &tx_telemetry_handle);
 }
 
 void APP_UserEvtRx(void *pData)
@@ -236,6 +300,28 @@ void APP_UserEvtRx(void *pData)
         if (evt->attr_handle == rx_setpoints_handle + 1 &&
             evt->data_length == sizeof(SetpointData_t)) {
           memcpy(&setpoint, evt->att_data, sizeof(SetpointData_t));
+        }
+        else if (evt->attr_handle == rx_pid_handle + 1 &&
+        		evt->data_length == sizeof(PIDTuningData_t)) {
+        	memcpy(&pid_tuning, evt->att_data, sizeof(PIDTuningData_t));
+
+        	// Aggiornamento struttura all'interno della callback per efficienza computazionale
+        	PID *target_pid = NULL;
+        	switch (pid_tuning.axis) {
+        	case 0: target_pid = &pid_pitch; break;
+        	case 1: target_pid = &pid_roll; break;
+        	case 2: target_pid = &pid_yaw; break;
+        	case 3: target_pid = &pid_altitude; break;
+        	}
+
+        	if (target_pid != NULL) {
+        		target_pid->Kp = pid_tuning.kp;
+        		target_pid->Ki = pid_tuning.ki;
+        		target_pid->Kd = pid_tuning.kd;
+
+        		// Reset del termine integrale al cambio costanti
+        		PID_Reset(target_pid);
+        	}
         }
       }
       break;
@@ -434,10 +520,10 @@ void Test_Motors(void)
 
 void Motor_Mixer(float throttle, float pid_pitch, float pid_roll, float pid_yaw) {
     // Matrice di motor mixing
-    float m1 = throttle + pid_pitch - pid_roll + pid_yaw; // posteriore dx
-    float m2 = throttle - pid_pitch - pid_roll - pid_yaw; // anteriore dx
-    float m3 = throttle - pid_pitch + pid_roll + pid_yaw; // anteriore sx
-    float m4 = throttle + pid_pitch + pid_roll - pid_yaw; // posteriore sx
+    m1 = throttle + pid_pitch - pid_roll + pid_yaw; // posteriore dx
+    m2 = throttle - pid_pitch - pid_roll - pid_yaw; // anteriore dx
+    m3 = throttle - pid_pitch + pid_roll + pid_yaw; // anteriore sx
+    m4 = throttle + pid_pitch + pid_roll - pid_yaw; // posteriore sx
 
     // Definizione dei limiti PWM
     float pwm_min = 2800.0f;  // Minimo per evitare lo spegnimento in volo (5% del valore massimo)
@@ -536,9 +622,9 @@ int main(void)
 
   Calibrate_Sensors();
 
-  //Test_Motors();
+  Test_Motors();
 
-
+  /*
   // Avvio della generazione del PWM sui 4 canali del Timer 4
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
@@ -553,15 +639,14 @@ int main(void)
   __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_4, 0);
   // Si forza l'aggiornamento del duty cycle senza aspettare il reset successivo del timer
   htim4.Instance->EGR = TIM_EGR_UG;
+  */
 
   // Avvio timer in modalità interrupt
   HAL_TIM_Base_Start_IT(&htim10);
 
   // Inizializzazione dei PID
-  PID pid_pitch, pid_roll, pid_yaw;
-  PID pid_altitude;
-  PID_Init(&pid_pitch, 100.0f, 10.0f, 0.0f, 9800.0f, -9800.0f);
-  PID_Init(&pid_roll,  100.0f, 10.0f, 0.0f, 9800.0f, -9800.0f);
+  PID_Init(&pid_pitch, 200.0f, 10.0f, 10.0f, 9800.0f, -9800.0f);
+  PID_Init(&pid_roll,  200.0f, 10.0f, 10.0f, 9800.0f, -9800.0f);
   PID_Init(&pid_yaw,   150.0f, 0.0f,  0.0f, 4200.0f, -4200.0f);
   PID_Init(&pid_altitude, 50.0f, 5.0f, 20.0f, 4200.0f, -4200.0f);
 
@@ -595,6 +680,7 @@ int main(void)
         	  PID_Reset(&pid_yaw);
           }
 
+
           uint8_t baro_status = 0;
           readSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_STATUS, &baro_status, 1);
 
@@ -616,8 +702,32 @@ int main(void)
           final_throttle = throttle + out_altitude;
           */
 
+          // Invia un pacchetto BLE ogni 20 cicli per non sovraccaricare lo stack di rete
+          static uint8_t telemetry_prescaler = 0;
+          telemetry_prescaler++;
+
+          if (telemetry_prescaler >= 20) {
+        	  // Popola la struct con i dati stimati
+              telemetry_data.pitch = pitch_est;
+              telemetry_data.roll = roll_est;
+              telemetry_data.yaw = yaw_est;
+              telemetry_data.altitude = altitude_estimated;
+
+              // Invia la notifica BLE aggiornando il valore della caratteristica
+              aci_gatt_update_char_value(drone_service_handle,
+            		  tx_telemetry_handle,
+					  0,
+					  sizeof(TelemetryData_t),
+					  (uint8_t*)&telemetry_data);
+
+              telemetry_prescaler = 0;
+          }
+
+          out_pitch = 0.0f;
+          out_yaw = 0.0f;
+
           // Motor mixer
-          Motor_Mixer(final_throttle, out_pitch, out_roll, out_yaw);
+          Motor_Mixer(throttle, out_pitch, out_roll, out_yaw);
 
 		  data_ready = 0;
 	  }
@@ -888,9 +998,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 84;
+  htim4.Init.Prescaler = 2;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 1999;
+  htim4.Init.Period = 55999;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)

@@ -26,7 +26,15 @@ void Sensor_Fusion_Update(LSM6DSR_AxesRaw_t *accel_data, LSM6DSR_AxesRaw_t *gyro
     // Applicazione del Filtro Complementare con la convenzione dei segni adottata dai sensori
     roll_est  = ALPHA * (roll_est + gx * DT) + (1.0f - ALPHA) * roll_acc;
     pitch_est = ALPHA * (pitch_est + gy * DT) + (1.0f - ALPHA) * pitch_acc;
-    yaw_est = yaw_est + gz * DT;
+
+    // Mitigazione della deriva sullo yaw evitando di integrare variazioni non intenzionali del giroscopio
+    // inferiori a 1 rad/s
+    float yaw_deadband = 1.0f;
+
+    if (fabsf(gz) > yaw_deadband)
+    {
+    	yaw_est = yaw_est + gz * DT;
+    }
 }
 
 void Altitude_Fusion_Update(LSM6DSR_AxesRaw_t *accel_data, float pressure_data, float pressure_zero, uint8_t new_baro_data) {

@@ -62,7 +62,7 @@ extern "C" {
 /*---------- Timeout Multiplier (for a number N, Time = N x 10 msec) -----------*/
 #define L2CAP_TIMEOUT_MULTIPLIER      600
 /*---------- HCI Default Timeout -----------*/
-#define HCI_DEFAULT_TIMEOUT_MS        1000
+#define HCI_DEFAULT_TIMEOUT_MS        10
 
 #define BLUENRG_memcpy                memcpy
 #define BLUENRG_memset                memset

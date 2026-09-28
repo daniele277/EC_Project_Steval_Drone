@@ -18,8 +18,8 @@
 #define ALPHA 0.98f
 
 // Costanti per sensor fusion barometro
-#define ALPHA_BARO 0.1f
-#define ALPHA_COMP 0.6f
+#define ALPHA_BARO 0.02f
+#define ALPHA_COMP 0.2f
 #define ACC_SENSITIVITY 8196.7f
 #define G_TO_MS2 9.81f
 #define DEG_TO_RAD 0.0174533f

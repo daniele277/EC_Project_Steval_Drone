@@ -127,9 +127,6 @@ uint16_t drone_service_handle;
 // Handle caratteristica setpoint
 uint16_t rx_setpoints_handle;
 
-// Handle caratteristica PID
-uint16_t rx_pid_handle;
-
 // Handle caratteristica telemetria
 uint16_t tx_telemetry_handle;
 
@@ -142,16 +139,6 @@ typedef struct {
 } SetpointData_t;
 
 SetpointData_t setpoint;
-
-// Struct taratura PID
-typedef struct {
-	uint8_t axis;
-	float kp;
-	float ki;
-	float kd;
-} PIDTuningData_t;
-
-PIDTuningData_t pid_tuning;
 
 // Struct dati di telemetria da inviare per debug
 typedef struct {
@@ -247,20 +234,6 @@ void Init_Drone_BLE_Service(void) {
                       0,
 					  &rx_setpoints_handle);
 
-    // UUID a 128 bit della caratteristica PID: 669a0c22-0008-417c-a496-d4bd8253d865
-    uint8_t chr_pid_uuid[16] = {0x65,0xd8,0x53,0x82,0xbd,0xd4,0x96,0xa4,0x7c,0x41,0x08,0x00,0x22,0x0c,0x9a,0x66};
-
-    aci_gatt_add_char(drone_service_handle,
-    		UUID_TYPE_128,
-			chr_pid_uuid,
-			sizeof(PIDTuningData_t),
-			CHAR_PROP_WRITE | CHAR_PROP_WRITE_WITHOUT_RESP,
-			ATTR_PERMISSION_NONE,
-			GATT_NOTIFY_ATTRIBUTE_WRITE,
-			16,
-			0,
-			&rx_pid_handle);
-
     // UUID a 128 bit della caratteristica di telemetria: 669a0c23-0008-417c-a496-d4bd8253d865
     uint8_t chr_telemetry_uuid[16] = {0x65,0xd8,0x53,0x82,0xbd,0xd4,0x96,0xa4,0x7c,0x41,0x08,0x00,0x23,0x0c,0x9a,0x66};
 
@@ -300,28 +273,6 @@ void APP_UserEvtRx(void *pData)
         if (evt->attr_handle == rx_setpoints_handle + 1 &&
             evt->data_length == sizeof(SetpointData_t)) {
           memcpy(&setpoint, evt->att_data, sizeof(SetpointData_t));
-        }
-        else if (evt->attr_handle == rx_pid_handle + 1 &&
-        		evt->data_length == sizeof(PIDTuningData_t)) {
-        	memcpy(&pid_tuning, evt->att_data, sizeof(PIDTuningData_t));
-
-        	// Aggiornamento struttura all'interno della callback per efficienza computazionale
-        	PID *target_pid = NULL;
-        	switch (pid_tuning.axis) {
-        	case 0: target_pid = &pid_pitch; break;
-        	case 1: target_pid = &pid_roll; break;
-        	case 2: target_pid = &pid_yaw; break;
-        	case 3: target_pid = &pid_altitude; break;
-        	}
-
-        	if (target_pid != NULL) {
-        		target_pid->Kp = pid_tuning.kp;
-        		target_pid->Ki = pid_tuning.ki;
-        		target_pid->Kd = pid_tuning.kd;
-
-        		// Reset del termine integrale al cambio costanti
-        		PID_Reset(target_pid);
-        	}
         }
       }
       break;
@@ -479,6 +430,7 @@ void Calibrate_Sensors(void) {
     }
 }
 
+
 void Test_Motors(void)
 {
     // Parametri operativi in termini di valori di registro CCR
@@ -516,6 +468,14 @@ void Test_Motors(void)
         htim4.Instance->EGR = TIM_EGR_UG;
         HAL_Delay(TIME_PAUSE_MS);
     }
+}
+
+void Stop_Motors(void) {
+	  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
+	  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
+	  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, 0);
+	  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_4, 0);
+	  htim4.Instance->EGR = TIM_EGR_UG;
 }
 
 void Motor_Mixer(float throttle, float pid_pitch, float pid_roll, float pid_yaw) {
@@ -620,6 +580,7 @@ int main(void)
   // 0110 = ODR a 100 Hz
   writeSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_CTRL_REG1, 0x60);
 
+  // Calibra la IMU con i motori spenti
   Calibrate_Sensors();
 
   Test_Motors();
@@ -701,7 +662,6 @@ int main(void)
 
           final_throttle = throttle + out_altitude;
           */
-
           // Invia un pacchetto BLE ogni 20 cicli per non sovraccaricare lo stack di rete
           static uint8_t telemetry_prescaler = 0;
           telemetry_prescaler++;
@@ -713,17 +673,21 @@ int main(void)
               telemetry_data.yaw = yaw_est;
               telemetry_data.altitude = altitude_estimated;
 
+              HAL_NVIC_DisableIRQ(EXTI4_IRQn);
+
               // Invia la notifica BLE aggiornando il valore della caratteristica
-              aci_gatt_update_char_value(drone_service_handle,
+              tBleStatus ret = aci_gatt_update_char_value(drone_service_handle,
             		  tx_telemetry_handle,
 					  0,
 					  sizeof(TelemetryData_t),
 					  (uint8_t*)&telemetry_data);
 
-              telemetry_prescaler = 0;
+              HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
+              // Azzera il contatore solo se il pacchetto è stato inserito correttamente nella coda di trasmissione
+              if (ret == BLE_STATUS_SUCCESS) { telemetry_prescaler = 0; }
           }
 
-          out_pitch = 0.0f;
           out_yaw = 0.0f;
 
           // Motor mixer
@@ -1256,7 +1220,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 2, 0); // Abbasso priorità BLE
   HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -1277,6 +1241,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+  Stop_Motors();
   while (1)
   {
   }

@@ -28,7 +28,7 @@
  * Increase this parameter to overcome possible issues due to BLE devices crowded environment 
  * or high number of incoming notifications from peripheral devices 
  */
-#define HCI_READ_PACKET_NUM_MAX 	   (5)
+#define HCI_READ_PACKET_NUM_MAX 	   (20)
 
 #define MIN(a,b)      ((a) < (b))? (a) : (b)
 #define MAX(a,b)      ((a) > (b))? (a) : (b)

@@ -188,6 +188,7 @@ int32_t HCI_TL_SPI_Send(uint8_t* buffer, uint16_t size)
       {
         /* Buffer is too small */
         result = -2;
+        HAL_Delay(1);
       }
     } else {
       /* SPI is not ready */
@@ -249,7 +250,7 @@ void hci_tl_lowlevel_init(void)
   /* Register event irq handler */
   HAL_EXTI_GetHandle(&hexti4, EXTI_LINE_4);
   HAL_EXTI_RegisterCallback(&hexti4, HAL_EXTI_COMMON_CB_ID, hci_tl_lowlevel_isr);
-  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 2, 0);
   HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
   /* USER CODE BEGIN hci_tl_lowlevel_init 3 */

@@ -8,7 +8,6 @@ void PID_Init(PID *pid, float kp, float ki, float kd, float out_max, float out_m
 
 	// Inizializzazione stato
 	pid->integral = 0.0f;
-	pid->prev_error = 0.0f;
 
 	// Limiti fisici
 	pid->out_max = out_max;
@@ -16,7 +15,7 @@ void PID_Init(PID *pid, float kp, float ki, float kd, float out_max, float out_m
 
 	// Settiamo i limiti dell'integrale ad una frazione del limite fisico in modo tale da
 	// lasciare spazio all'azione proporzionale e derivativa in caso di saturazione dell'integrale
-	pid->int_max = 0.7f * out_max;
+	pid->int_max = 0.35f * out_max;
 	pid->int_min = -pid->int_max;
 }
 
@@ -24,10 +23,9 @@ void PID_Reset(PID *pid) {
 	pid->integral = 0.0f;
 }
 
-float PID_Compute(PID *pid, float setpoint, float measured, float dt) {
+float PID_Compute(PID *pid, float setpoint, float measured, float rate, float dt) {
 	float error;
 	float p_out, i_out, d_out, tot;
-	float derivative;
 
 	// Errore come differenza tra setpoint e valore misurato
 	error = setpoint - measured;
@@ -39,11 +37,18 @@ float PID_Compute(PID *pid, float setpoint, float measured, float dt) {
 	pid->integral += error * dt;
 	i_out = pid->Ki * pid->integral;
 
+	if (i_out > pid->int_max) {
+		i_out = pid->int_max;
+		pid->integral = i_out / pid->Ki;
+	}
+	else if (i_out < pid->int_min) {
+		i_out = pid->int_min;
+		pid->integral = i_out / pid->Ki;
+	}
+
 	// Componente derivativa
-	// N.B.: Per il rischio di derivative kick potrebbe essere necessario usare direttamente il valore
-	// di velocità angolare misurata dal giroscopio es. Kd * omega
-	derivative = (error - pid->prev_error) / dt;
-	d_out = pid->Kd * derivative;
+    // D sulla misura: rate = d(measured)/dt, quindi il segno è negativo
+    d_out = -pid->Kd * rate;
 
 	// Azione di controllo
 	tot = p_out + i_out + d_out;
@@ -61,6 +66,5 @@ float PID_Compute(PID *pid, float setpoint, float measured, float dt) {
 	    }
 	}
 
-	pid->prev_error = error;
 	return tot;
 }

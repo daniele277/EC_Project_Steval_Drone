@@ -29,6 +29,10 @@ extern volatile float roll_est;
 extern volatile float pitch_est;
 extern volatile float yaw_est;
 
+extern volatile float gx;
+extern volatile float gy;
+extern volatile float gz;
+
 extern volatile float altitude_baro_filtered;
 extern volatile float altitude_estimated;
 extern volatile float v_z;

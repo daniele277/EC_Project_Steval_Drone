@@ -4,6 +4,10 @@ volatile float roll_est  = 0.0f;
 volatile float pitch_est = 0.0f;
 volatile float yaw_est = 0.0f;
 
+volatile float gx = 0.0f;
+volatile float gy = 0.0f;
+volatile float gz = 0.0f;
+
 volatile float altitude_baro_filtered = 0.0f;
 volatile float altitude_estimated = 0.0f;
 volatile float v_z = 0.0f;
@@ -56,15 +60,16 @@ void Altitude_Fusion_Update(LSM6DSR_AxesRaw_t *accel_data, float pressure_data, 
 	                   (ay_g * sinf(roll_rad) * cosf(pitch_rad)) +
 	                   (az_g * cosf(roll_rad) * cosf(pitch_rad));
 
-	// Sottrae l'accelerazione di gravità per ottenere l'accelerazione verticale nel sistema di riferimento fisso
+	// Calcolo accelerazione lineare esistente
 	float az_linear = (az_earth_g - 1.0f) * G_TO_MS2;
 
-	// Integrazione dell'accelerazione sull'asse z per trovare l'altitudine
+	// Integrazioni con il valore filtrato
 	v_z += az_linear * DT;
 	altitude_estimated += v_z * DT;
 
 	// Filtro complementare tra barometro e accelerometro
 	altitude_estimated = (altitude_estimated * ALPHA_COMP) + (altitude_baro_filtered * (1.0f - ALPHA_COMP));
+
 
 }
 

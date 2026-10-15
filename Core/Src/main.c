@@ -124,6 +124,7 @@ float pressure_zero = 0.0f;
 // Handle servizio drone
 uint16_t drone_service_handle;
 
+
 // Handle caratteristica setpoint
 uint16_t rx_setpoints_handle;
 
@@ -270,7 +271,8 @@ void APP_UserEvtRx(void *pData)
       if (blue_evt->ecode == EVT_BLUE_GATT_ATTRIBUTE_MODIFIED) {
         evt_gatt_attr_modified_IDB05A1 *evt = (evt_gatt_attr_modified_IDB05A1*)blue_evt->data;
 
-        if (evt->attr_handle == rx_setpoints_handle + 1 &&
+        if ((evt->attr_handle == rx_setpoints_handle ||
+        	evt->attr_handle == rx_setpoints_handle + 1) &&
             evt->data_length == sizeof(SetpointData_t)) {
           memcpy(&setpoint, evt->att_data, sizeof(SetpointData_t));
         }
@@ -317,6 +319,8 @@ HAL_StatusTypeDef readSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_ad
 
     HAL_StatusTypeDef status;
 
+    __HAL_TIM_DISABLE_IT(&htim10, TIM_IT_UPDATE);
+
     // Aggiunge bit di lettura (MSB a 1)
     uint8_t tx_addr = reg_addr | 0x80;
 
@@ -334,11 +338,15 @@ HAL_StatusTypeDef readSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_ad
     // Deseleziona il sensore usando i pin specifici dell'LSM6DSR
     HAL_GPIO_WritePin(CS_Port, CS_Pin, GPIO_PIN_SET);
 
+    __HAL_TIM_ENABLE_IT(&htim10, TIM_IT_UPDATE);
+
     return status;
 }
 
 HAL_StatusTypeDef writeSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_addr, uint8_t value) {
     HAL_StatusTypeDef status;
+
+    __HAL_TIM_DISABLE_IT(&htim10, TIM_IT_UPDATE);
 
     // Aggiunge bit di scrittura (MSB a 0)
     uint8_t tx_addr = reg_addr & 0x7F;
@@ -356,6 +364,8 @@ HAL_StatusTypeDef writeSPI(GPIO_TypeDef* CS_Port, uint16_t CS_Pin, uint8_t reg_a
 
     // Deseleziona il sensore (CS High)
     HAL_GPIO_WritePin(CS_Port, CS_Pin, GPIO_PIN_SET);
+
+    __HAL_TIM_ENABLE_IT(&htim10, TIM_IT_UPDATE);
 
     return status;
 }
@@ -580,34 +590,25 @@ int main(void)
   // 0110 = ODR a 100 Hz
   writeSPI(LPS22HH_CS_GPIO_Port, LPS22HH_CS_Pin, LPS22HH_CTRL_REG1, 0x60);
 
+  HAL_Delay(50); // assestamento ODR
+
   // Calibra la IMU con i motori spenti
   Calibrate_Sensors();
 
   Test_Motors();
 
-  /*
   // Avvio della generazione del PWM sui 4 canali del Timer 4
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_4);
 
-  // Condizione di sicurezza iniziale: tutti i duty cycle a 0%
-  // La macro __HAL_TIM_SET_COMPARE modifica il valore del CCR a runtime
-  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
-  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
-  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, 0);
-  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_4, 0);
-  // Si forza l'aggiornamento del duty cycle senza aspettare il reset successivo del timer
-  htim4.Instance->EGR = TIM_EGR_UG;
-  */
-
   // Avvio timer in modalità interrupt
   HAL_TIM_Base_Start_IT(&htim10);
 
   // Inizializzazione dei PID
-  PID_Init(&pid_pitch, 200.0f, 10.0f, 10.0f, 9800.0f, -9800.0f);
-  PID_Init(&pid_roll,  200.0f, 10.0f, 10.0f, 9800.0f, -9800.0f);
+  PID_Init(&pid_pitch, 260.0f, 60.0f, 45.0f, 9800.0f, -9800.0f);
+  PID_Init(&pid_roll,  260.0f, 60.0f, 45.0f, 9800.0f, -9800.0f);
   PID_Init(&pid_yaw,   150.0f, 0.0f,  0.0f, 4200.0f, -4200.0f);
   PID_Init(&pid_altitude, 50.0f, 5.0f, 20.0f, 4200.0f, -4200.0f);
 
@@ -630,9 +631,9 @@ int main(void)
 		  throttle = setpoint.throttle;
 
 		  // Calcolo azione di controllo
-		  out_pitch = PID_Compute(&pid_pitch, target_pitch, pitch_est, DT);
-		  out_roll  = PID_Compute(&pid_roll, target_roll, roll_est, DT);
-          out_yaw   = PID_Compute(&pid_yaw, target_yaw, yaw_est, DT);
+		  out_pitch = PID_Compute(&pid_pitch, target_pitch, pitch_est, gy, DT);
+		  out_roll  = PID_Compute(&pid_roll, target_roll, roll_est, gx, DT);
+          out_yaw   = PID_Compute(&pid_yaw, target_yaw, yaw_est, gz, DT);
 
           // Resetta la somma integrale dei PID quando il drone è fermo
           if(throttle < 10) {
@@ -662,6 +663,7 @@ int main(void)
 
           final_throttle = throttle + out_altitude;
           */
+
           // Invia un pacchetto BLE ogni 20 cicli per non sovraccaricare lo stack di rete
           static uint8_t telemetry_prescaler = 0;
           telemetry_prescaler++;
@@ -687,8 +689,6 @@ int main(void)
               // Azzera il contatore solo se il pacchetto è stato inserito correttamente nella coda di trasmissione
               if (ret == BLE_STATUS_SUCCESS) { telemetry_prescaler = 0; }
           }
-
-          out_yaw = 0.0f;
 
           // Motor mixer
           Motor_Mixer(throttle, out_pitch, out_roll, out_yaw);

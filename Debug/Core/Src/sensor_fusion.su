@@ -1,3 +1,3 @@
-../Core/Src/sensor_fusion.c:11:6:Sensor_Fusion_Update	64	static
-../Core/Src/sensor_fusion.c:40:6:Altitude_Fusion_Update	64	static
-../Core/Src/sensor_fusion.c:71:6:Altitude_Fusion_Reset	4	static
+../Core/Src/sensor_fusion.c:15:6:Sensor_Fusion_Update	64	static
+../Core/Src/sensor_fusion.c:44:6:Altitude_Fusion_Update	64	static
+../Core/Src/sensor_fusion.c:76:6:Altitude_Fusion_Reset	4	static
